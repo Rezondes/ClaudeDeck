@@ -1,4 +1,5 @@
 import streamDeck from "@elgato/streamdeck";
+import { fileURLToPath } from "node:url";
 
 import { DecisionKeys } from "./actions/decision-action.js";
 import { KeyAdapter } from "./actions/key-adapter.js";
@@ -9,6 +10,8 @@ import type { DecisionKind } from "./render/decision-key.js";
 import { HOOK_PORT } from "./server/hook-contract.js";
 import { createHookServer } from "./server/hook-server.js";
 import { PendingApprovals } from "./server/pending-approvals.js";
+import { createWindowHelper } from "./win/focus-window.js";
+import { matchWindow } from "./win/window-match.js";
 
 streamDeck.logger.setLevel("info");
 const log = streamDeck.logger.createScope("ClaudeDeck");
@@ -25,7 +28,19 @@ const decisionKeys = (["allow", "always", "deny"] as DecisionKind[]).map((kind) 
 	return keys;
 });
 
-const statusKeys = new StatusKeys(store, readContextUsage);
+const windows = createWindowHelper(fileURLToPath(new URL("../scripts/focus-window.ps1", import.meta.url)));
+const focusProject = async (project: string) => {
+	try {
+		const window = matchWindow(project, await windows.list());
+		if (window) await windows.focus(window.hwnd);
+		else log.warn(`no window found for project "${project}"`);
+		return window !== null;
+	} catch (error) {
+		log.error(`focusing "${project}" failed: ${error}`);
+		return false;
+	}
+};
+const statusKeys = new StatusKeys(store, readContextUsage, Date.now, focusProject);
 streamDeck.actions.registerAction(
 	new KeyAdapter("com.claudedeck.streamdeck.status", {
 		appear: (view, ev) => statusKeys.appear(view, ev.action.isKey() ? ev.action.coordinates : undefined, ev.payload.settings as StatusSettings),

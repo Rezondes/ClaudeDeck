@@ -178,6 +178,31 @@ describe("StatusKeys", () => {
 		expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "idle"));
 	});
 
+	it("press focuses window and clears done", async () => {
+		let now = 0;
+		const store = new SessionStore(() => now);
+		const focusProject = vi.fn(async () => true);
+		const keys = new StatusKeys(store, async () => null, () => now, focusProject);
+		const k0 = view("k0");
+		keys.appear(k0, { column: 0, row: 0 }, {});
+		store.handle(event("Stop", "api"));
+		keys.press(k0);
+		expect(focusProject).toHaveBeenCalledWith("api");
+		expect(store.get("api")?.state).toBe("idle");
+		await Promise.resolve();
+		expect(k0.showAlert).not.toHaveBeenCalled();
+	});
+
+	it("press alerts when no window matches", async () => {
+		const store = new SessionStore(() => 0);
+		const keys = new StatusKeys(store, async () => null, () => 0, async () => false);
+		const k0 = view("k0");
+		keys.appear(k0, { column: 0, row: 0 }, {});
+		store.handle(event("UserPromptSubmit", "api"));
+		keys.press(k0);
+		await vi.waitFor(() => expect(k0.showAlert).toHaveBeenCalledOnce());
+	});
+
 	it("press on an empty key does nothing", () => {
 		const { keys } = setup();
 		const k0 = view("k0");

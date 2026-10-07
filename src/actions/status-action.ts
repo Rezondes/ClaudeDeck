@@ -32,6 +32,8 @@ export class StatusKeys {
 		private readonly store: SessionStore,
 		private readonly readContext: ReadContext,
 		private readonly now: () => number = Date.now,
+		/** Brings the session's window forward; resolves false when no window matched. */
+		private readonly focusProject: (project: string) => Promise<boolean> = async () => false,
 	) {
 		store.onChange((sessionId) => this.#sessionChanged(sessionId));
 	}
@@ -67,7 +69,12 @@ export class StatusKeys {
 
 	press(view: KeyView): void {
 		const session = this.sessionOf(view);
-		if (session) this.store.keyPressed(session.id);
+		if (!session) return;
+		this.store.keyPressed(session.id);
+		this.focusProject(session.projectName)
+			.catch(() => false)
+			.then((focused) => focused || view.showAlert())
+			.catch(() => {});
 	}
 
 	/** Every hook event; refreshes the context percent after prompts, tool use and stops. */
