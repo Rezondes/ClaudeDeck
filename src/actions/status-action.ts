@@ -158,6 +158,8 @@ export class StatusKeys {
 	}
 
 	#readContext(sessionId: string, transcriptPath: string): void {
+		// The module's exact value replaces the transcript estimate for this session.
+		if (this.store.get(sessionId)?.moduleContext?.percent !== undefined) return;
 		this.#lastRead.set(sessionId, this.now());
 		this.readContext(transcriptPath).then((percent) => {
 			const session = this.store.get(sessionId);
@@ -226,7 +228,7 @@ export class StatusKeys {
 		else this.#stopFlash(id);
 		const flash = this.#flashOn.get(id) ?? false;
 		view.setImage(
-			toDataUrl(renderStatusKey({ project: session.projectName, title: session.title, state: session.state, contextPercent: this.#context.get(session.id) ?? null, flash })),
+			toDataUrl(renderStatusKey({ project: session.projectName, title: session.title, state: session.state, contextPercent: session.moduleContext?.percent ?? this.#context.get(session.id) ?? null, flash })),
 		);
 	}
 

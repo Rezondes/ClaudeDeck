@@ -156,6 +156,35 @@ describe("StatusKeys", () => {
 		expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "done", 30));
 	});
 
+	it("prefers the module's exact context", async () => {
+		const readContext = vi.fn(async () => 30 as number | null);
+		const { keys, send, store, advance } = setup(readContext);
+		const k0 = view("k0");
+		keys.appear(k0, { column: 0, row: 0 }, {});
+		send(event("UserPromptSubmit", "a"));
+		await vi.waitFor(() => expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "working", 30)));
+		store.handleModule({ name: "usage", sessionId: "a", context: { percent: 12, window: 1_000_000, tokens: 120_000 } });
+		expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "working", 12));
+		advance(2000);
+		send(event("Stop", "a"));
+		expect(readContext).toHaveBeenCalledTimes(1);
+		await Promise.resolve();
+		expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "done", 12));
+	});
+
+	it("falls back to the transcript without module data", async () => {
+		const readContext = vi.fn(async () => 30 as number | null);
+		const { keys, send, store, advance } = setup(readContext);
+		const k0 = view("k0");
+		keys.appear(k0, { column: 0, row: 0 }, {});
+		send(event("UserPromptSubmit", "a"));
+		store.handleModule({ name: "usage", sessionId: "a", context: {} });
+		advance(2000);
+		send(event("Stop", "a"));
+		expect(readContext).toHaveBeenCalledTimes(2);
+		await vi.waitFor(() => expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "done", 30)));
+	});
+
 	it("pinned project survives restart", () => {
 		// After a restart the key settings come back with onWillAppear; a running session must land on its pinned key.
 		const { keys, send, store } = setup();
