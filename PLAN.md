@@ -894,7 +894,7 @@ Testbefehl: `npm test`
 
 ### Kontext
 
-Heute bekommt bei einem Pin nur die erste Session des Ordners den gepinnten Key; zwei Keys mit demselben Ordner funktionieren nicht (Review Package 8, Hinweis 4). Neu: Alle Keys, die auf denselben Ordner gepinnt sind, bilden eine Gruppe in Key-Reihenfolge. Die Sessions dieses Ordners werden nach Aktualität absteigend auf die Gruppe verteilt (neueste auf den ersten Key). Weitere Sessions des Ordners belegen freie ungepinnte Keys. Option im Property Inspector: "Nur neueste Session" (`latestOnly`). Ein solcher Key zeigt immer die zuletzt aktive Session seines Ordners; wird eine andere Session des Ordners aktiv, wechselt sie auf diesen Key und die vorherige rückt auf den nächsten freien Key.
+Heute bekommt bei einem Pin nur die erste Session des Ordners den gepinnten Key; zwei Keys mit demselben Ordner funktionieren nicht (Review Package 8, Hinweis 4). Neu: Alle Keys, die auf denselben Ordner gepinnt sind, bilden eine Gruppe in Key-Reihenfolge. Die Sessions dieses Ordners werden nach Aktualität absteigend auf die Gruppe verteilt (neueste auf den ersten Key). Weitere Sessions des Ordners belegen freie ungepinnte Keys. Option im Property Inspector: "Latest session only" (`latestOnly`). Ein solcher Key zeigt immer die zuletzt aktive Session seines Ordners; wird eine andere Session des Ordners aktiv, wechselt sie auf diesen Key und die vorherige rückt auf den nächsten freien Key.
 
 ### Acceptance Criteria
 
@@ -902,7 +902,7 @@ Heute bekommt bei einem Pin nur die erste Session des Ordners den gepinnten Key;
 - [ ] AC2: Eine dritte Session desselben Ordners belegt einen freien ungepinnten Key oder wird nicht angezeigt, wenn keiner frei ist.
 - [ ] AC3: Ein Key mit `latestOnly` zeigt immer die Session seines Ordners mit dem neuesten Event; der Wechsel passiert beim Event, nicht erst beim nächsten Seed.
 - [ ] AC4: Nie liegen zwei Sessions auf demselben Slot (auch nicht kurzzeitig für Listener).
-- [ ] AC5: Der Property Inspector bietet die Checkbox "Nur neueste Session" (`latestOnly`), gespeichert in den Action-Settings.
+- [ ] AC5: Der Property Inspector bietet die Checkbox "Latest session only" (`latestOnly`), gespeichert in den Action-Settings.
 
 ### Tests (TDD)
 

@@ -13,6 +13,16 @@ function event(hook_event_name: HookEvent["hook_event_name"], extra: Partial<Hoo
 	};
 }
 
+const pin = (cwd: string, latestOnly = false) => ({ cwd, latestOnly });
+
+/** Fails the test as soon as a listener could see two sessions on one slot. */
+function expectUniqueSlots(store: SessionStore): void {
+	store.onChange(() => {
+		const slots = store.sessions().map((s) => s.slot);
+		expect(new Set(slots).size).toBe(slots.length);
+	});
+}
+
 /** Brings session s1 into the given state. */
 const enter: Record<Exclude<SessionState, "idle">, HookEvent> = {
 	working: event("UserPromptSubmit"),
@@ -101,7 +111,7 @@ describe("SessionStore", () => {
 
 	it("pinned cwd always gets its slot", () => {
 		const store = new SessionStore(() => 0);
-		store.setPins(new Map([[0, "F:\\Code\\api-svc"]]));
+		store.setPins(new Map([[0, pin("F:\\Code\\api-svc")]]));
 		store.handle(event("UserPromptSubmit", { session_id: "web", cwd: "F:\\Code\\web-app" }));
 		store.handle(event("UserPromptSubmit", { session_id: "api", cwd: "F:\\Code\\api-svc" }));
 		expect([store.get("web")?.slot, store.get("api")?.slot]).toEqual([1, 0]);
@@ -115,9 +125,126 @@ describe("SessionStore", () => {
 		store.handle(event("UserPromptSubmit", { session_id: "web", cwd: "F:\\Code\\web-app" }));
 		store.handle(event("UserPromptSubmit", { session_id: "api", cwd: "F:\\Code\\api-svc" }));
 		changed.length = 0;
-		store.setPins(new Map([[0, "F:\\Code\\api-svc"]]));
+		store.setPins(new Map([[0, pin("F:\\Code\\api-svc")]]));
 		expect([store.get("api")?.slot, store.get("web")?.slot]).toEqual([0, 1]);
 		expect(changed.sort()).toEqual(["api", "web"]);
+	});
+
+	it("distributes a folder's sessions over its pinned slots by recency", () => {
+		let now = 0;
+		const store = new SessionStore(() => now);
+		const api = (id: string, at: number) => {
+			now = at;
+			store.handle(event("UserPromptSubmit", { session_id: id, cwd: "F:\\Code\\api-svc" }));
+		};
+		api("old", 100);
+		api("newest", 300);
+		api("middle", 200);
+		expectUniqueSlots(store);
+		store.setPins(new Map([[0, pin("F:\\Code\\api-svc")], [2, pin("f:/code/api-svc")]]));
+		expect(["newest", "middle", "old"].map((id) => store.get(id)?.slot)).toEqual([0, 2, 1]);
+
+		// A new session is the newest: it takes the first pinned slot, the one it pushed off the group gets a free slot.
+		api("fresh", 400);
+		expect(["fresh", "newest", "middle", "old"].map((id) => store.get(id)?.slot)).toEqual([0, 2, 3, 1]);
+
+		// Without latestOnly an event does not reshuffle placed sessions.
+		api("old", 500);
+		expect(["fresh", "newest", "middle", "old"].map((id) => store.get(id)?.slot)).toEqual([0, 2, 3, 1]);
+	});
+
+	it("extra sessions of a pinned folder take free unpinned slots", () => {
+		// Three keys (slots 0..2), two pinned to api-svc.
+		let now = 0;
+		const store = new SessionStore(() => now);
+		expectUniqueSlots(store);
+		store.setPins(new Map([[0, pin("F:\\Code\\api-svc")], [1, pin("F:\\Code\\api-svc")]]));
+		const api = (id: string, at: number) => {
+			now = at;
+			store.handle(event("UserPromptSubmit", { session_id: id, cwd: "F:\\Code\\api-svc" }));
+		};
+		api("a", 100);
+		api("b", 200);
+		api("c", 300);
+		expect(["c", "b", "a"].map((id) => store.get(id)?.slot)).toEqual([0, 1, 2]);
+		// No free key left: the session pushed off the group lands beyond the keys and is not shown.
+		api("d", 400);
+		expect(["d", "c", "a", "b"].map((id) => store.get(id)?.slot)).toEqual([0, 1, 2, 3]);
+	});
+
+	it("latestOnly slot follows the most recently active session", () => {
+		let now = 0;
+		const store = new SessionStore(() => now);
+		const changed: string[] = [];
+		expectUniqueSlots(store);
+		store.onChange((id) => changed.push(id));
+		store.setPins(new Map([[1, pin("F:\\Code\\api-svc", true)]]));
+		const send = (id: string, at: number, name: HookEvent["hook_event_name"] = "UserPromptSubmit") => {
+			now = at;
+			store.handle(event(name, { session_id: id, cwd: id === "web" ? "F:\\Code\\web-app" : "F:\\Code\\api-svc" }));
+		};
+		send("web", 100);
+		send("a", 200);
+		send("b", 300);
+		expect(["web", "a", "b"].map((id) => store.get(id)?.slot)).toEqual([0, 2, 1]);
+
+		// The switch happens on the event, the previous occupant takes the next free slot.
+		changed.length = 0;
+		send("a", 400, "PostToolUse");
+		expect(["web", "a", "b"].map((id) => store.get(id)?.slot)).toEqual([0, 1, 2]);
+		expect(changed.sort()).toEqual(["a", "b"]);
+	});
+
+	it("an ended session's pinned slot goes to the next newest session of its folder", () => {
+		for (const latestOnly of [false, true]) {
+			let now = 0;
+			const store = new SessionStore(() => now);
+			store.setPins(new Map([[0, pin("F:\\Code\\api-svc", latestOnly)], [1, pin("F:\\Code\\api-svc")]]));
+			const send = (name: HookEvent["hook_event_name"], id: string, at: number) => {
+				now = at;
+				store.handle(event(name, { session_id: id, cwd: "F:\\Code\\api-svc" }));
+			};
+			send("UserPromptSubmit", "a", 100);
+			send("UserPromptSubmit", "b", 200);
+			send("UserPromptSubmit", "c", 300);
+			expect(["c", "b", "a"].map((id) => store.get(id)?.slot)).toEqual([0, 1, 2]);
+			const changed: string[] = [];
+			expectUniqueSlots(store);
+			store.onChange((id) => changed.push(id));
+			send("SessionEnd", "c", 400);
+			expect(["b", "a"].map((id) => store.get(id)?.slot)).toEqual([0, 1]);
+			expect(changed).toEqual(["c", "a", "b"]);
+		}
+	});
+
+	it("a displaced session takes its folder's free pinned slots in key order", () => {
+		let now = 0;
+		const store = new SessionStore(() => now);
+		store.setPins(new Map([[2, pin("F:\\Code\\api-svc")], [1, pin("F:\\Code\\api-svc")], [0, pin("F:\\Code\\api-svc", true)]]));
+		const send = (id: string, at: number) => {
+			now = at;
+			store.handle(event("UserPromptSubmit", { session_id: id, cwd: "F:\\Code\\api-svc" }));
+		};
+		send("s1", 100);
+		send("s2", 200);
+		expect(["s1", "s2"].map((id) => store.get(id)?.slot)).toEqual([1, 0]);
+		send("s1", 300);
+		expect(["s1", "s2"].map((id) => store.get(id)?.slot)).toEqual([0, 1]);
+	});
+
+	it("a new session does not move sessions of other folders", () => {
+		let now = 0;
+		const store = new SessionStore(() => now);
+		store.setPins(new Map([[0, pin("F:\\Code\\api-svc")], [1, pin("F:\\Code\\api-svc")]]));
+		const send = (id: string, at: number, cwd = "F:\\Code\\api-svc") => {
+			now = at;
+			store.handle(event("UserPromptSubmit", { session_id: id, cwd }));
+		};
+		send("a1", 100);
+		send("a2", 200);
+		send("a1", 300); // a1 is newest now, but keeps its slot
+		send("b", 400, "F:\\Code\\web-app");
+		expect(["a2", "a1", "b"].map((id) => store.get(id)?.slot)).toEqual([0, 1, 2]);
 	});
 
 	it("lists all sessions", () => {
@@ -129,14 +256,14 @@ describe("SessionStore", () => {
 
 	it("pinned cwd matches case-insensitively and ignores a trailing backslash", () => {
 		const store = new SessionStore(() => 0);
-		store.setPins(new Map([[2, "f:\\code\\API-SVC\\"]]));
+		store.setPins(new Map([[2, pin("f:\\code\\API-SVC\\")]]));
 		store.handle(event("UserPromptSubmit", { session_id: "api", cwd: "F:\\Code\\api-svc" }));
 		expect(store.get("api")?.slot).toBe(2);
 	});
 
 	it("pinned cwd matches with forward slashes", () => {
 		const store = new SessionStore(() => 0);
-		store.setPins(new Map([[3, "F:/Code/api-svc"]]));
+		store.setPins(new Map([[3, pin("F:/Code/api-svc")]]));
 		store.handle(event("UserPromptSubmit", { session_id: "api", cwd: "F:\\Code\\api-svc" }));
 		expect(store.get("api")?.slot).toBe(3);
 	});

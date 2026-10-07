@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { DesktopSession } from "../desktop/session-catalog.js";
 import type { HookEvent } from "../domain/hook-event.js";
-import { normalizeCwd, type Session, type SessionStore } from "../domain/session-store.js";
+import { normalizeCwd, type Pin, type Session, type SessionStore } from "../domain/session-store.js";
 import { renderEmptyStatusKey, renderStatusKey, toDataUrl } from "../render/status-key.js";
 import type { KeyView } from "./key-view.js";
 import { SlotRegistry, type Coordinates } from "./slot-registry.js";
@@ -12,6 +12,8 @@ import { SlotRegistry, type Coordinates } from "./slot-registry.js";
 export type StatusSettings = {
 	/** Project folder pinned to this key, e.g. "F:\Code\ClaudeDeck". */
 	project?: string;
+	/** The key always shows the pinned folder's session with the newest event. */
+	latestOnly?: boolean;
 };
 
 export type ReadContext = (transcriptPath: string) => Promise<number | null>;
@@ -27,18 +29,22 @@ export function transcriptPathFor(cwd: string, cliSessionId: string, home = os.h
 	return path.join(home, ".claude", "projects", cwd.replace(/[^A-Za-z0-9]/g, "-"), `${cliSessionId}.jsonl`);
 }
 
-/** Non-archived sessions active in the last 12 h, plus the newest non-archived session of each pinned folder. */
+/** Non-archived sessions active in the last 12 h, plus the n newest non-archived sessions of each folder pinned to n keys. */
 function sessionsToSeed(catalog: DesktopSession[], pinnedFolders: string[], now: number): DesktopSession[] {
 	const live = catalog.filter((s) => !s.archived).sort((a, b) => b.lastActivityAt - a.lastActivityAt);
-	const newestPinned = pinnedFolders.map((folder) => live.find((s) => normalizeCwd(s.cwd) === normalizeCwd(folder)));
+	const folders = pinnedFolders.map(normalizeCwd);
+	const newestPinned = [...new Set(folders)].flatMap((folder) => {
+		const keyCount = folders.filter((f) => f === folder).length;
+		return live.filter((s) => normalizeCwd(s.cwd) === folder).slice(0, keyCount);
+	});
 	const recent = live.filter((s) => now - s.lastActivityAt <= SEED_MAX_AGE_MS);
-	return [...new Set([...recent, ...newestPinned])].filter((s): s is DesktopSession => s !== undefined);
+	return [...new Set([...recent, ...newestPinned])];
 }
 
 /** Claude Status keys: one session per key, ordered by key position. */
 export class StatusKeys {
 	readonly #views = new Map<string, KeyView>();
-	readonly #pins = new Map<string, string>();
+	readonly #pins = new Map<string, Pin>();
 	readonly #slots = new SlotRegistry();
 	readonly #context = new Map<string, number>();
 	readonly #lastRead = new Map<string, number>();
@@ -77,7 +83,7 @@ export class StatusKeys {
 		} catch {
 			return;
 		}
-		const selected = sessionsToSeed(catalog, [...this.#pins.values()], this.now());
+		const selected = sessionsToSeed(catalog, [...this.#pins.values()].map((pin) => pin.cwd), this.now());
 		// Idle catalog sessions that left the selection (aged out, archived, unpinned) free their slot; CLI sessions are not in the catalog.
 		const keep = new Set(selected.map((s) => s.cliSessionId));
 		const inCatalog = new Set(catalog.map((s) => s.cliSessionId));
@@ -150,15 +156,15 @@ export class StatusKeys {
 
 	#setPin(id: string, settings: StatusSettings): void {
 		const project = settings.project?.trim();
-		if (project) this.#pins.set(id, project);
+		if (project) this.#pins.set(id, { cwd: project, latestOnly: settings.latestOnly ?? false });
 		else this.#pins.delete(id);
 	}
 
 	#applyPins(): void {
-		const pins = new Map<number, string>();
-		for (const [id, project] of this.#pins) {
+		const pins = new Map<number, Pin>();
+		for (const [id, pin] of this.#pins) {
 			const slot = this.#slots.slotOf(id);
-			if (slot !== undefined) pins.set(slot, project);
+			if (slot !== undefined) pins.set(slot, pin);
 		}
 		this.store.setPins(pins);
 	}

@@ -9,9 +9,12 @@
 		<sdpi-textfield setting="project" placeholder="F:\Code\MyProject (optional)"></sdpi-textfield>
 	</sdpi-item>
 	<sdpi-item>
+		<sdpi-checkbox setting="latestOnly" label="Latest session only"></sdpi-checkbox>
+	</sdpi-item>
+	<sdpi-item>
 		<details>
 			<summary>Help</summary>
-			<p>Leave empty to show Claude Code sessions in the order they start. Enter a project folder to always show that project's session on this key.</p>
+			<p>Leave empty to show Claude Code sessions in the order they start. Enter a project folder to always show that project's session on this key. Several keys with the same folder show its sessions newest first; with "Latest session only" this key always shows the folder's most recently active session.</p>
 		</details>
 	</sdpi-item>
 </body>

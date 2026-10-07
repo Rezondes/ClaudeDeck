@@ -24,6 +24,9 @@ export interface Session {
 	lastEventAt: number;
 }
 
+/** A status key slot bound to a project folder. latestOnly: the slot always shows the folder's session with the newest event. */
+export type Pin = { cwd: string; latestOnly: boolean };
+
 /** A session known before its first hook event. */
 export type SeedEntry = { sessionId: string; cwd: string; transcriptPath: string; lastActivityAt: number };
 
@@ -60,8 +63,8 @@ export function projectNameOf(cwd: string): string {
 /** Translates hook events into one state per Claude Code session. Pure domain, no IO. */
 export class SessionStore {
 	readonly #sessions = new Map<string, Session>();
-	/** Slot to normalized cwd. */
-	#pins = new Map<number, string>();
+	/** Slot to pin with normalized cwd. */
+	#pins = new Map<number, Pin>();
 	readonly #listeners: ((sessionId: string) => void)[] = [];
 	readonly #now: () => number;
 
@@ -83,9 +86,9 @@ export class SessionStore {
 			this.remove(event.session_id);
 			return;
 		}
-		let session = this.#sessions.get(event.session_id);
-		const before = session && { state: session.state, permissionMode: session.permissionMode };
-		session ??= this.#create({ sessionId: event.session_id, cwd: event.cwd, transcriptPath: event.transcript_path, lastActivityAt: 0 });
+		const known = this.#sessions.get(event.session_id);
+		const before = known && { state: known.state, permissionMode: known.permissionMode };
+		const session = known ?? this.#create({ sessionId: event.session_id, cwd: event.cwd, transcriptPath: event.transcript_path, lastActivityAt: this.#now() });
 		if (event.hook_event_name === "PermissionRequest") {
 			session.pendingApprovals++;
 		}
@@ -93,8 +96,10 @@ export class SessionStore {
 		session.state = this.#visibleState(session);
 		session.permissionMode = event.permission_mode ?? session.permissionMode;
 		session.lastEventAt = this.#now();
-		if (before?.state !== session.state || before.permissionMode !== session.permissionMode) {
-			this.#notify(session.id);
+		const moved = known ? this.#followLatest(session) : this.#distribute(normalizeCwd(session.cwd));
+		const changed = before?.state !== session.state || before.permissionMode !== session.permissionMode;
+		for (const id of new Set([...(changed ? [session.id] : []), ...moved])) {
+			this.#notify(id);
 		}
 	}
 
@@ -126,19 +131,11 @@ export class SessionStore {
 		}
 	}
 
-	/** Binds status key slots to project folders. Running sessions move into their pinned slot. */
-	setPins(pins: Map<number, string>): void {
-		this.#pins = new Map([...pins].map(([slot, cwd]) => [slot, normalizeCwd(cwd)]));
-		// Running sessions move into their pinned slot; whoever sat there gets the next free slot.
-		for (const [slot, cwd] of this.#pins) {
-			const session = [...this.#sessions.values()].find((s) => normalizeCwd(s.cwd) === cwd);
-			if (!session || session.slot === slot) continue;
-			const occupant = [...this.#sessions.values()].find((s) => s.slot === slot);
-			if (occupant) occupant.slot = -1; // vacate first so no listener ever sees two sessions on one slot
-			session.slot = slot;
-			if (occupant) occupant.slot = this.#freeSlot(occupant.cwd);
-			this.#notify(session.id);
-			if (occupant) this.#notify(occupant.id);
+	/** Binds status key slots to project folders and redistributes running sessions by recency. */
+	setPins(pins: Map<number, Pin>): void {
+		this.#pins = new Map([...pins].map(([slot, pin]) => [slot, { ...pin, cwd: normalizeCwd(pin.cwd) }]));
+		for (const id of this.#distribute()) {
+			this.#notify(id);
 		}
 	}
 
@@ -146,18 +143,27 @@ export class SessionStore {
 		return [...this.#sessions.values()];
 	}
 
-	/** Deletes a session; its slot is free for the next new session. Other sessions keep their slots. */
+	/** Deletes a session. A pinned slot it leaves goes to the next newest session of its folder, other folders keep their slots. */
 	remove(sessionId: string): void {
-		if (this.#sessions.delete(sessionId)) {
-			this.#notify(sessionId);
+		const session = this.#sessions.get(sessionId);
+		if (!session) return;
+		this.#sessions.delete(sessionId);
+		const moved = this.#distribute(normalizeCwd(session.cwd));
+		this.#notify(sessionId);
+		for (const id of moved) {
+			this.#notify(id);
 		}
 	}
 
 	/** Creates idle sessions known from outside (Desktop catalog) before their first hook event. Known sessions stay untouched. */
 	seed(entries: SeedEntry[]): void {
-		for (const entry of [...entries].sort((a, b) => b.lastActivityAt - a.lastActivityAt)) {
-			if (this.#sessions.has(entry.sessionId)) continue;
-			this.#notify(this.#create(entry).id);
+		const created = [...entries]
+			.sort((a, b) => b.lastActivityAt - a.lastActivityAt)
+			.filter((entry) => !this.#sessions.has(entry.sessionId))
+			.map((entry) => this.#create(entry).id);
+		if (created.length === 0) return;
+		for (const id of new Set([...created, ...this.#distribute()])) {
+			this.#notify(id);
 		}
 	}
 
@@ -171,10 +177,11 @@ export class SessionStore {
 		}
 	}
 
+	/** Adds a session without a slot (-1); the caller places it with #distribute before notifying. */
 	#create(entry: SeedEntry): Session {
 		const session: Session = {
 			id: entry.sessionId,
-			slot: this.#freeSlot(entry.cwd),
+			slot: -1,
 			state: "idle",
 			baseState: "idle",
 			pendingApprovals: 0,
@@ -187,14 +194,59 @@ export class SessionStore {
 		return session;
 	}
 
-	/** The pinned slot for this cwd if it is free, else the lowest slot that is neither taken nor pinned. */
+	/**
+	 * Placement by recency: the sessions of each pinned folder (only the given one, if any), newest event first, fill that
+	 * folder's pinned slots (latestOnly slots first, then key order). Sessions pushed off those slots, and unplaced ones (slot -1),
+	 * take the next free slot; everyone else keeps their slot. Changes slots only, the caller notifies afterwards,
+	 * so no listener ever sees two sessions on one slot. Returns the moved session ids.
+	 */
+	#distribute(onlyCwd?: string): string[] {
+		const sessions = [...this.#sessions.values()];
+		const before = new Map(sessions.map((s) => [s, s.slot]));
+		const groups = [...this.#groups()].filter(([cwd]) => onlyCwd === undefined || cwd === onlyCwd);
+		const groupSlots = new Set(groups.flatMap(([, slots]) => slots));
+		const target = new Map<Session, number>();
+		for (const [cwd, slots] of groups) {
+			const newest = sessions.filter((s) => normalizeCwd(s.cwd) === cwd).sort((a, b) => b.lastEventAt - a.lastEventAt);
+			slots.forEach((slot, i) => newest[i] && target.set(newest[i], slot));
+		}
+		for (const s of sessions) {
+			if (target.has(s) || groupSlots.has(s.slot)) s.slot = -1;
+		}
+		for (const [s, slot] of target) s.slot = slot;
+		for (const s of sessions) {
+			if (s.slot === -1) s.slot = this.#freeSlot(s.cwd);
+		}
+		return sessions.filter((s) => s.slot !== before.get(s)).map((s) => s.id);
+	}
+
+	/** A session just had an event: on its folder's latestOnly slot it replaces the occupant, who takes the next free slot. Returns the moved session ids. */
+	#followLatest(session: Session): string[] {
+		const slot = this.#groups().get(normalizeCwd(session.cwd))?.[0];
+		if (slot === undefined || !this.#pins.get(slot)?.latestOnly || session.slot === slot) return [];
+		const occupant = this.sessions().find((s) => s.slot === slot);
+		session.slot = slot; // frees its old slot for the occupant
+		if (!occupant) return [session.id];
+		occupant.slot = this.#freeSlot(occupant.cwd);
+		return [session.id, occupant.id];
+	}
+
+	/** Pinned slots per normalized cwd, latestOnly slots first, then in key order. */
+	#groups(): Map<string, number[]> {
+		const groups = new Map<string, number[]>();
+		const pins = [...this.#pins].sort(([a, pa], [b, pb]) => Number(pb.latestOnly) - Number(pa.latestOnly) || a - b);
+		for (const [slot, pin] of pins) {
+			groups.set(pin.cwd, [...(groups.get(pin.cwd) ?? []), slot]);
+		}
+		return groups;
+	}
+
+	/** The first free pinned slot of this cwd in group order, else the lowest slot that is neither taken nor pinned. */
 	#freeSlot(cwd: string): number {
 		const taken = new Set([...this.#sessions.values()].map((s) => s.slot));
-		const wanted = normalizeCwd(cwd);
-		for (const [slot, pinned] of this.#pins) {
-			if (pinned === wanted && !taken.has(slot)) {
-				return slot;
-			}
+		const pinned = this.#groups().get(normalizeCwd(cwd))?.find((slot) => !taken.has(slot));
+		if (pinned !== undefined) {
+			return pinned;
 		}
 		let slot = 0;
 		while (taken.has(slot) || this.#pins.has(slot)) {

@@ -170,6 +170,20 @@ describe("StatusKeys", () => {
 		expect(store.get("web")?.slot).toBe(1);
 	});
 
+	it("latestOnly setting reaches the store", () => {
+		const { keys, send, store, advance } = setup();
+		const k0 = view("k0");
+		keys.appear(k0, { column: 0, row: 0 }, { project: "F:\\Code\\api", latestOnly: true });
+		keys.appear(view("k1"), { column: 1, row: 0 }, {});
+		send(event("UserPromptSubmit", "a", { cwd: "F:\\Code\\api" }));
+		advance(1);
+		send(event("UserPromptSubmit", "b", { cwd: "F:\\Code\\api" }));
+		advance(1);
+		send(event("Stop", "a", { cwd: "F:\\Code\\api" }));
+		expect([store.get("a")?.slot, store.get("b")?.slot]).toEqual([0, 1]);
+		expect(k0.setImage).toHaveBeenLastCalledWith(status("api", "done"));
+	});
+
 	it("press on done sets idle", () => {
 		const { keys, send, store } = setup();
 		const k0 = view("k0");
@@ -244,6 +258,14 @@ describe("StatusKeys", () => {
 			await keys.seed();
 			expect(store.sessions().map((s) => s.id).sort()).toEqual(["pinned-new", "recent"]);
 			expect(store.get("pinned-new")).toMatchObject({ slot: 0, state: "idle" });
+		});
+
+		it("seeds the newest session for each key pinned to a folder", async () => {
+			const { store, keys } = seedSetup(async () => [desktop("newest", "F:\\Code\\api", 20), desktop("second", "F:\\Code\\api", 30), desktop("third", "F:\\Code\\api", 40)]);
+			keys.appear(view("k0"), { column: 0, row: 0 }, { project: "F:\\Code\\api" });
+			keys.appear(view("k1"), { column: 1, row: 0 }, { project: "F:\\Code\\api" });
+			await keys.seed();
+			expect(store.sessions().map((s) => [s.id, s.slot])).toEqual([["newest", 0], ["second", 1]]);
 		});
 
 		it("derives transcript path from cwd and cli session id", () => {
