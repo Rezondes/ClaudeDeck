@@ -124,6 +124,29 @@ describe("render", () => {
 		expect(renderStatusKey({ project: "ClaudeDeck", state: "idle", contextPercent: 1 })).toContain('font-size="17" font-weight="700" fill="#FFFFFF">ClaudeDeck<');
 	});
 
+	it("status key wraps a title into two lines", () => {
+		const svg = renderStatusKey({ project: "ClaudeDeck", title: "ClaudeDeck Stream Deck Plugin", state: "working", contextPercent: 42 });
+		expect(svg).toContain('font-size="15" font-weight="700" fill="#FFFFFF">ClaudeDeck<');
+		expect(svg).toContain(">Stream Deck…<");
+		expect(svg).toContain(">Working<");
+		expect(svg).toContain('id="bar"');
+		expect(svg).not.toMatch(/filter|feGaussianBlur|\sopacity=|textLength/);
+		for (const [, size] of svg.matchAll(/font-size="(\d+)"/g)) expect(Number(size)).toBeGreaterThanOrEqual(14);
+		expect(svg).toMatchSnapshot();
+		expect(renderStatusKey({ project: "p", title: "Short", state: "idle", contextPercent: null })).toContain(">Short<");
+		expect(renderStatusKey({ project: "p", title: "Averyveryverylongword x", state: "idle", contextPercent: null })).toContain(">Averyveryve…<");
+		const emoji = renderStatusKey({ project: "p", title: "a<b 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉", state: "idle", contextPercent: null });
+		expect(emoji).toContain(">a&lt;b<");
+		expect(emoji).toContain(">🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉…<");
+		expect(() => toDataUrl(emoji)).not.toThrow();
+	});
+
+	it("status key without title keeps project name", () => {
+		const plain = renderStatusKey({ project: "ClaudeDeck", state: "done", contextPercent: 42 });
+		expect(renderStatusKey({ project: "ClaudeDeck", title: undefined, state: "done", contextPercent: 42 })).toBe(plain);
+		expect(renderStatusKey({ project: "ClaudeDeck", title: "  ", state: "done", contextPercent: 42 })).toBe(plain);
+	});
+
 	it("NaN context is treated as null", () => {
 		const svg = renderStatusKey({ project: "p", state: "idle", contextPercent: Number.NaN });
 		expect(svg).toContain(">--<");

@@ -62,6 +62,16 @@ describe("ModeKeys", () => {
 		expect(key.setImage).toHaveBeenLastCalledWith(toDataUrl(renderModeKey({ mode: "acceptEdits", pending: true, currentMode: undefined, project: "web" })));
 	});
 
+	it("uses session title as project line", () => {
+		const { store, approvals, keys } = setup();
+		const key = view("k");
+		keys.appear(key, {});
+		store.handle(event("web", "default"));
+		store.setTitles(new Map([["web", "Web Title"]]));
+		approvals.add(request("web"), vi.fn());
+		expect(key.setImage).toHaveBeenLastCalledWith(toDataUrl(renderModeKey({ mode: "acceptEdits", pending: true, currentMode: "default", project: "Web Title" })));
+	});
+
 	it("dim without pending and shows current mode of the most recently active session", () => {
 		const { store, approvals, keys, advance } = setup();
 		const respond = vi.fn();

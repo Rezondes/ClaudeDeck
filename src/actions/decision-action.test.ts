@@ -77,6 +77,18 @@ describe("DecisionKeys", () => {
 		expect(key.setImage).toHaveBeenLastCalledWith(image("allow", { toolName: "Bash", toolInput: { command: "npm test" }, project: "api-svc" }));
 	});
 
+	it("uses session title as project line", () => {
+		const approvals = new PendingApprovals();
+		const labelFor = vi.fn((sessionId: string, fallback: string) => (sessionId === "api-svc" ? "API Title" : fallback));
+		const keys = new DecisionKeys("allow", approvals, () => true, labelFor);
+		const key = view("k");
+		keys.appear(key);
+		approvals.add(request("api-svc"), vi.fn());
+		approvals.add(request("web"), vi.fn());
+		expect(labelFor).toHaveBeenLastCalledWith("api-svc", "api-svc");
+		expect(key.setImage).toHaveBeenLastCalledWith(image("allow", { toolName: "Bash", toolInput: { command: "npm test" }, project: "API Title" }));
+	});
+
 	it("press without pending is a no-op", () => {
 		const approvals = new PendingApprovals();
 		const spy = vi.spyOn(approvals, "approve");

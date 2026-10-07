@@ -245,4 +245,17 @@ describe("SessionStore", () => {
 		expect(store.sessions()).toHaveLength(3);
 		expect(store.get("new")).toMatchObject({ slot: 1, state: "working" });
 	});
+
+	it("setTitles updates titles and notifies", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(enter.working);
+		store.handle(event("UserPromptSubmit", { session_id: "s2" }));
+		const changed: string[] = [];
+		store.onChange((id) => changed.push(id));
+		store.setTitles(new Map([["s1", "ClaudeDeck Plugin"], ["s2", ""], ["unknown", "x"]]));
+		store.setTitles(new Map([["s1", "ClaudeDeck Plugin"]]));
+		expect(store.get("s1")?.title).toBe("ClaudeDeck Plugin");
+		expect(store.get("s2")?.title).toBeUndefined();
+		expect(changed).toEqual(["s1"]);
+	});
 });

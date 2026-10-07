@@ -26,7 +26,7 @@ setInterval(() => store.tick(), 30_000);
 
 let online = false;
 const decisionKeys = (["allow", "always", "deny"] as DecisionKind[]).map((kind) => {
-	const keys = new DecisionKeys(kind, approvals, () => online);
+	const keys = new DecisionKeys(kind, approvals, () => online, (sessionId, project) => store.get(sessionId)?.title || project);
 	streamDeck.actions.registerAction(new KeyAdapter(`com.claudedeck.streamdeck.${kind}`, keys));
 	return keys;
 });

@@ -60,6 +60,8 @@ export class ModeKeys {
 			(best, s) => (s.permissionMode && (!best || s.lastEventAt >= best.lastEventAt) ? s : best),
 			undefined,
 		);
-		view.setImage(toDataUrl(renderModeKey({ mode: this.#modes.get(id) ?? "acceptEdits", pending: this.approvals.count > 0, currentMode: latest?.permissionMode, project: this.approvals.oldest()?.project })));
+		const oldest = this.approvals.oldest();
+		const project = oldest && (this.store.get(oldest.sessionId)?.title || oldest.project);
+		view.setImage(toDataUrl(renderModeKey({ mode: this.#modes.get(id) ?? "acceptEdits", pending: this.approvals.count > 0, currentMode: latest?.permissionMode, project })));
 	}
 }

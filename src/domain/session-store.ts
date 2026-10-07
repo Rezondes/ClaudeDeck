@@ -16,6 +16,8 @@ export interface Session {
 	/** Last segment of cwd, e.g. "ClaudeDeck". */
 	projectName: string;
 	transcriptPath: string;
+	/** Desktop session title, undefined for CLI sessions and empty titles. */
+	title?: string;
 	/** Last permission_mode seen, undefined until an event carried one. */
 	permissionMode?: string;
 	/** now() of the last hook event. */
@@ -156,6 +158,16 @@ export class SessionStore {
 		for (const entry of [...entries].sort((a, b) => b.lastActivityAt - a.lastActivityAt)) {
 			if (this.#sessions.has(entry.sessionId)) continue;
 			this.#notify(this.#create(entry).id);
+		}
+	}
+
+	/** Sets titles of known sessions (Desktop catalog); an empty title means none. Notifies once per changed session. */
+	setTitles(titles: Map<string, string>): void {
+		for (const [sessionId, title] of titles) {
+			const session = this.#sessions.get(sessionId);
+			if (!session || session.title === (title || undefined)) continue;
+			session.title = title || undefined;
+			this.#notify(sessionId);
 		}
 	}
 

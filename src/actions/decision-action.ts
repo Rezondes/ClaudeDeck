@@ -11,6 +11,8 @@ export class DecisionKeys {
 		private readonly kind: DecisionKind,
 		private readonly approvals: PendingApprovals,
 		private readonly isOnline: () => boolean,
+		/** Project line for a session: its title when known, else the folder name. */
+		private readonly labelFor: (sessionId: string, fallbackProject: string) => string = (_id, fallback) => fallback,
 	) {
 		approvals.onChange(() => this.renderAll());
 	}
@@ -40,7 +42,7 @@ export class DecisionKeys {
 		const pending = oldest && {
 			toolName: oldest.toolName,
 			toolInput: oldest.toolInput,
-			...(this.approvals.count > 1 ? { project: oldest.project } : {}),
+			...(this.approvals.count > 1 ? { project: this.labelFor(oldest.sessionId, oldest.project) } : {}),
 		};
 		view.setImage(toDataUrl(renderDecisionKey({ kind: this.kind, pending: pending ?? null, offline: !this.isOnline() })));
 	}

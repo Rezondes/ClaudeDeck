@@ -4,6 +4,8 @@ export type StatusState = "working" | "approval" | "input" | "done" | "idle";
 
 export interface StatusKeyInput {
 	project: string;
+	/** Desktop session title; replaces the project name when not blank. */
+	title?: string;
 	state: StatusState;
 	contextPercent: number | null;
 	flash?: boolean;
@@ -29,7 +31,23 @@ export function escapeXml(text: string): string {
 /** Cuts by code points so emoji are never split (a lone surrogate makes encodeURIComponent throw). */
 export function truncate(text: string, max: number): string {
 	const chars = Array.from(text);
-	return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : text;
+	return chars.length > max ? `${chars.slice(0, max - 1).join("").trimEnd()}…` : text;
+}
+
+/** Up to two lines of at most max code points, broken at spaces; overflow ends in "…". */
+export function wrapTitle(title: string, max = 12): string[] {
+	const lines: string[] = [];
+	let line = "";
+	for (const word of title.trim().split(/\s+/)) {
+		const next = line ? `${line} ${word}` : word;
+		if (line && Array.from(next).length > max) {
+			lines.push(line);
+			line = word;
+		} else line = next;
+	}
+	lines.push(line);
+	const rest = lines.slice(1).join(" ");
+	return [truncate(lines[0], max), ...(rest ? [truncate(rest, max)] : [])];
 }
 
 export function toDataUrl(svg: string): string {
@@ -44,13 +62,22 @@ export function svgDocument(body: string[]): string {
 	].join("\n");
 }
 
-export function renderStatusKey({ project, state, contextPercent, flash = false }: StatusKeyInput): string {
+function nameText(project: string, title: string | undefined): string[] {
+	if (title?.trim()) {
+		const lines = wrapTitle(title);
+		const y = lines.length === 1 ? [52] : [42, 61];
+		return lines.map((line, i) => `<text x="72" y="${y[i]}" text-anchor="middle" font-size="15" font-weight="700" fill="#FFFFFF">${escapeXml(line)}</text>`);
+	}
+	const name = truncate(project, 10);
+	const nameSize = Array.from(name).length <= 7 ? 21 : 17;
+	return [`<text x="72" y="52" text-anchor="middle" font-size="${nameSize}" font-weight="700" fill="#FFFFFF">${escapeXml(name)}</text>`];
+}
+
+export function renderStatusKey({ project, title, state, contextPercent, flash = false }: StatusKeyInput): string {
 	const color = STATE_COLORS[state];
 	const percent =
 		contextPercent === null || !Number.isFinite(contextPercent) ? null : Math.round(Math.min(100, Math.max(0, contextPercent)));
 	const ctxColor = percent === null ? STATE_COLORS.idle : contextColor(percent);
-	const name = truncate(project, 10);
-	const nameSize = Array.from(name).length <= 7 ? 21 : 17;
 	// ponytail: glow faked with stacked strokes, the Stream Deck SVG renderer has no filters
 	const border = flash
 		? `<rect class="border" ${KEY_RECT} fill="none" stroke="#FFFFFF" stroke-width="4"/>`
@@ -63,7 +90,7 @@ export function renderStatusKey({ project, state, contextPercent, flash = false 
 		`<rect ${KEY_RECT} fill="${KEY_BACKGROUND}"/>`,
 		`<rect ${KEY_RECT} fill="url(#tint)"/>`,
 		border,
-		`<text x="72" y="52" text-anchor="middle" font-size="${nameSize}" font-weight="700" fill="#FFFFFF">${escapeXml(name)}</text>`,
+		...nameText(project, title),
 		`<text x="18" y="92" font-size="15" font-weight="600" fill="${color}">${LABELS[state]}</text>`,
 		`<text x="126" y="92" text-anchor="end" font-size="15" font-weight="600" fill="${ctxColor}">${percent === null ? "--" : `${percent}%`}</text>`,
 		...(percent === null

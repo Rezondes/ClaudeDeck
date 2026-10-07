@@ -296,6 +296,22 @@ describe("StatusKeys", () => {
 			expect(k0.setImage).toHaveBeenLastCalledWith(toDataUrl(renderEmptyStatusKey()));
 		});
 
+		it("takes titles from the catalog, also for sessions started by hook events", async () => {
+			const titled = (id: string, title: string) => ({ ...desktop(id, `F:\\Code\\${id}`, 1), title });
+			let catalog = [titled("seeded", "Seeded Title"), titled("running", "Running Title")];
+			const { store, keys } = seedSetup(async () => catalog);
+			const k0 = view("k0");
+			keys.appear(k0, { column: 0, row: 0 }, {});
+			store.handle(event("UserPromptSubmit", "running"));
+			await keys.seed();
+			expect(store.get("seeded")?.title).toBe("Seeded Title");
+			expect(store.get("running")?.title).toBe("Running Title");
+			expect(k0.setImage).toHaveBeenLastCalledWith(toDataUrl(renderStatusKey({ project: "running", title: "Running Title", state: "working", contextPercent: null, flash: false })));
+			catalog = [titled("running", "Renamed")];
+			await keys.seed();
+			expect(store.get("running")?.title).toBe("Renamed");
+		});
+
 		it("catalog failure keeps keys unchanged", async () => {
 			const { store, keys } = seedSetup(async () => {
 				throw new Error("EACCES");

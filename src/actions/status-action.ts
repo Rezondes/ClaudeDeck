@@ -88,6 +88,7 @@ export class StatusKeys {
 			.filter((s) => !this.store.get(s.cliSessionId))
 			.map((s) => ({ sessionId: s.cliSessionId, cwd: s.cwd, transcriptPath: transcriptPathFor(s.cwd, s.cliSessionId), lastActivityAt: s.lastActivityAt }));
 		this.store.seed(entries);
+		this.store.setTitles(new Map(catalog.map((s) => [s.cliSessionId, s.title])));
 		for (const entry of entries) this.#readContext(entry.sessionId, entry.transcriptPath);
 	}
 
@@ -194,7 +195,7 @@ export class StatusKeys {
 		else this.#stopFlash(id);
 		const flash = this.#flashOn.get(id) ?? false;
 		view.setImage(
-			toDataUrl(renderStatusKey({ project: session.projectName, state: session.state, contextPercent: this.#context.get(session.id) ?? null, flash })),
+			toDataUrl(renderStatusKey({ project: session.projectName, title: session.title, state: session.state, contextPercent: this.#context.get(session.id) ?? null, flash })),
 		);
 	}
 
