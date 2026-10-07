@@ -18,8 +18,14 @@ Hinweis zur Reihenfolge: Die Packages folgen den technischen Abhängigkeiten, ni
 | 9 | Fenster-Fokus | Ein Druck auf einen Status-Key holt das Fenster der Session in den Vordergrund. | 8 |
 | 10 | Interrupt-Key (Go/No-Go) | Eine laufende Session lässt sich per Tastendruck unterbrechen, oder es ist dokumentiert, warum nicht. | 9 |
 | 11 | Permission-Modus-Key (Go/No-Go) | Der Permission-Modus einer Session lässt sich per Tastendruck wechseln, oder es ist dokumentiert, warum nicht. | 7 |
+| 12 | Desktop-Session-Katalog | Die Session-Metadaten von Claude Desktop (lokale ID, Hook-Session-ID, Ordner, Titel, letzte Aktivität) sind lesbar. | - |
+| 13 | Vorbelegung der Status-Keys | Status-Keys zeigen Desktop-Sessions sofort beim Start bzw. Hinzufügen, nicht erst nach dem ersten Prompt. | 12 |
+| 14 | Session-Titel als Beschriftung | Status-, Decision- und Modus-Keys beschriften Desktop-Sessions mit ihrem Titel statt dem Ordnernamen. | 13 |
+| 15 | Mehrere Sessions pro Ordner | Mehrere Keys mit demselben Ordner zeigen dessen Sessions nach Aktualität verteilt; optional zeigt ein Key nur die neueste. | 13 |
+| 16 | Deep Link in die Desktop-Session | Ein Druck auf einen Status-Key öffnet die Session direkt im Chatfenster von Claude Desktop. | 12 |
+| 17 | Claude-Window-Actions | Je eine Action minimiert/stellt wieder her bzw. maximiert/stellt wieder her das Claude-Desktop-Fenster. | - |
 
-Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen.
+Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen. Packages 12 und 17 sind unabhängig voneinander; 13 bis 16 folgen auf 12 (14, 15 und 16 berühren dieselben Dateien und laufen nacheinander).
 
 ## Architektur
 
@@ -754,3 +760,237 @@ Testbefehl: `npm test`
 
 - Moduswechsel ohne offene Freigabe (nicht dokumentiert).
 - `bypassPermissions` per Tastendruck (bewusst ausgeschlossen).
+
+---
+
+## Package 12: Desktop-Session-Katalog
+
+**Ziel:** Die Session-Metadaten von Claude Desktop (lokale ID, Hook-Session-ID, Ordner, Titel, letzte Aktivität) sind lesbar.
+
+**Abhängigkeiten:** keine
+
+**Betroffene Dateien:**
+- `src/desktop/session-catalog.ts` (neu)
+- `src/desktop/session-catalog.test.ts` (neu)
+
+### Kontext
+
+Claude Desktop legt pro Code-Session eine Datei `%APPDATA%\Claude\claude-code-sessions\<account>\<org>\local_<uuid>.json` an (gefunden beim Deep-Link-Test, nicht dokumentiert). Relevante Felder: `sessionId` (`local_<uuid>`), `cliSessionId` (= `session_id` der Hook-Payloads), `cwd`, `title`, `lastActivityAt` (ms als String), `isArchived`. Das Format ist intern und kann sich mit Updates ändern; der Katalog überspringt daher jede fehlerhafte Datei, statt abzubrechen.
+
+### Acceptance Criteria
+
+- [ ] AC1: `readDesktopSessions(root)` liefert für jede gültige Datei `{ localId, cliSessionId, cwd, title, lastActivityAt, archived }`, rekursiv unter `root`.
+- [ ] AC2: Nur `localId` passend zu `^local_[A-Za-z0-9-]{1,64}$` (dieselbe Regel wie der Desktop-URL-Handler) und `cliSessionId` als UUID werden übernommen; alles andere wird übersprungen.
+- [ ] AC3: Ungültiges JSON, fehlende Felder oder nicht lesbare Dateien werden übersprungen, ohne Exception.
+- [ ] AC4: Fehlt `root` (Desktop nicht installiert), ist das Ergebnis eine leere Liste.
+- [ ] AC5: `lastActivityAt` ist eine Zahl (ms), `archived` ein Boolean, `title` ein String (leer, falls nicht vorhanden).
+- [ ] AC6: Der Default-Root ist `%APPDATA%\Claude\claude-code-sessions`.
+
+### Tests (TDD)
+
+1. `session-catalog.test.ts > "reads valid session files recursively"` - AC1, AC5 (temporäre Verzeichnisstruktur in `os.tmpdir()`)
+2. `> "skips invalid ids"` - AC2
+3. `> "skips broken files"` - AC3
+4. `> "returns empty list when root is missing"` - AC4
+5. `> "defaults to APPDATA claude-code-sessions"` - AC6
+
+Testbefehl: `npm test`
+
+### Out of Scope
+
+- Schreiben in die Desktop-Dateien (nie).
+
+---
+
+## Package 13: Vorbelegung der Status-Keys
+
+**Ziel:** Status-Keys zeigen Desktop-Sessions sofort beim Start bzw. Hinzufügen, nicht erst nach dem ersten Prompt.
+
+**Abhängigkeiten:** Package 12
+
+**Betroffene Dateien:**
+- `src/domain/session-store.ts` (+ Test) (ändern: `seed`)
+- `src/actions/status-action.ts` (+ Test) (ändern)
+- `src/plugin.ts` (ändern)
+
+### Kontext
+
+Bisher entsteht eine Session erst mit ihrem ersten Hook-Event; nach einem Plugin-Neustart oder beim Hinzufügen einer Kachel bleibt der Key leer. Der Katalog aus Package 12 kennt alle Desktop-Sessions. Damit nicht 50 alte Sessions die Slots belegen, werden nur vorbelegt: Sessions mit Aktivität in den letzten 12 Stunden, plus pro gepinntem Ordner dessen neueste Session unabhängig vom Alter. Vorbelegte Sessions starten als `idle`. Ihr Transkriptpfad wird aus `cwd` und `cliSessionId` abgeleitet (`~/.claude/projects/<cwd, jedes nicht alphanumerische Zeichen durch "-" ersetzt>/<cliSessionId>.jsonl`, z. B. wird `F:\Code\ClaudeDeck` zu `F--Code-ClaudeDeck`), damit der Kontextbalken sofort einen Wert hat. Archivierte Sessions werden nie vorbelegt. CLI-Sessions stehen nicht im Katalog und erscheinen weiterhin erst beim ersten Event.
+
+### Acceptance Criteria
+
+- [ ] AC1: `store.seed(entries)` legt für jede noch unbekannte Session eine Session im Zustand `idle` an (Slot nach den bekannten Regeln, neueste zuerst); bekannte Sessions bleiben unverändert.
+- [ ] AC2: Vorbelegt werden nicht archivierte Sessions mit `lastActivityAt` in den letzten 12 h sowie je gepinntem Ordner die neueste nicht archivierte Session.
+- [ ] AC3: Der abgeleitete Transkriptpfad folgt der Regel aus dem Kontext (Test mit `F:\Code\ClaudeDeck` und einem Pfad mit Leerzeichen).
+- [ ] AC4: Nach dem Vorbelegen wird der Kontext jeder vorbelegten Session einmal gelesen.
+- [ ] AC5: Vorbelegt wird beim Plugin-Start, wenn ein Status-Key erscheint oder sich seine Einstellungen ändern, und alle 60 s.
+- [ ] AC6: Ein späteres Hook-Event einer vorbelegten Session aktualisiert genau diese Session (gleiche `session_id`), es entsteht keine zweite.
+- [ ] AC7: Fehlschläge beim Lesen des Katalogs lassen die Keys im bisherigen Zustand (kein Absturz).
+
+### Tests (TDD)
+
+1. `session-store.test.ts > "seed creates idle sessions newest first and keeps known ones"` - AC1, AC6
+2. `status-action.test.ts > "seeds recent and pinned sessions"` - AC2 (Katalog als Fake injiziert, Uhr injiziert)
+3. `> "derives transcript path from cwd and cli session id"` - AC3
+4. `> "reads context for seeded sessions"` - AC4
+5. `> "reseeds on appear, settings change and every 60s"` - AC5 (Fake-Timer)
+6. `> "catalog failure keeps keys unchanged"` - AC7
+
+Testbefehl: `npm test`
+
+### Out of Scope
+
+- CLI-Sessions vorbelegen (kein Katalog vorhanden).
+
+---
+
+## Package 14: Session-Titel als Beschriftung
+
+**Ziel:** Status-, Decision- und Modus-Keys beschriften Desktop-Sessions mit ihrem Titel statt dem Ordnernamen.
+
+**Abhängigkeiten:** Package 13
+
+**Betroffene Dateien:**
+- `src/domain/session-store.ts` (+ Test), `src/actions/status-action.ts` (+ Test), `src/actions/decision-action.ts` (+ Test), `src/actions/mode-action.ts` (+ Test), `src/server/pending-approvals.ts` (+ Test)
+- `src/render/status-key.ts` (+ Test, Snapshots)
+
+### Kontext
+
+Zwei Sessions im selben Ordner sind heute auf den Keys nicht unterscheidbar. Desktop-Sessions haben einen Titel (z. B. "ClaudeDeck Stream Deck Plugin"). Der Titel wird beim Vorbelegen und bei jedem erneuten Lesen des Katalogs übernommen (`session.title`). Für eine Zeile des Status-Keys ist er zu lang; er wird auf bis zu zwei Zeilen umbrochen (Wortgrenzen, je max. 12 Zeichen bei 15 px, Rest mit "…"). Ohne Titel (CLI-Session) bleibt der Ordnername in der bisherigen Darstellung.
+
+### Acceptance Criteria
+
+- [ ] AC1: `store.setTitles(map cliSessionId -> title)` setzt `session.title` und meldet Änderungen über `onChange`.
+- [ ] AC2: Der Status-Key zeigt bei vorhandenem Titel diesen in bis zu zwei Zeilen (Wortumbruch, max. 12 Zeichen pro Zeile, Kürzung mit "…"), sonst den Ordnernamen wie bisher.
+- [ ] AC3: Allow/Always/Deny und der Modus-Key zeigen als Projektzeile den Titel (gekürzt auf 14 Zeichen), falls bekannt, sonst den Ordnernamen.
+- [ ] AC4: Titel werden XML-escaped und nach Code Points gekürzt (Emoji-sicher).
+- [ ] AC5: Die Optik bleibt SVG-Tiny-tauglich, alle Schriften mindestens 14 px.
+
+### Tests (TDD)
+
+1. `session-store.test.ts > "setTitles updates titles and notifies"` - AC1
+2. `render.test.ts > "status key wraps a title into two lines"` - AC2, AC4, AC5
+3. `render.test.ts > "status key without title keeps project name"` - AC2
+4. `decision-action.test.ts > "uses session title as project line"` - AC3
+5. `mode-action.test.ts > "uses session title as project line"` - AC3
+
+Testbefehl: `npm test`
+
+### Out of Scope
+
+- Titel für CLI-Sessions (nicht verfügbar).
+
+---
+
+## Package 15: Mehrere Sessions pro Ordner
+
+**Ziel:** Mehrere Keys mit demselben Ordner zeigen dessen Sessions nach Aktualität verteilt; optional zeigt ein Key nur die neueste.
+
+**Abhängigkeiten:** Package 13
+
+**Betroffene Dateien:**
+- `src/domain/session-store.ts` (+ Test), `src/actions/status-action.ts` (+ Test)
+- `com.claudedeck.streamdeck.sdPlugin/ui/status.html`
+
+### Kontext
+
+Heute bekommt bei einem Pin nur die erste Session des Ordners den gepinnten Key; zwei Keys mit demselben Ordner funktionieren nicht (Review Package 8, Hinweis 4). Neu: Alle Keys, die auf denselben Ordner gepinnt sind, bilden eine Gruppe in Key-Reihenfolge. Die Sessions dieses Ordners werden nach Aktualität absteigend auf die Gruppe verteilt (neueste auf den ersten Key). Weitere Sessions des Ordners belegen freie ungepinnte Keys. Option im Property Inspector: "Nur neueste Session" (`latestOnly`). Ein solcher Key zeigt immer die zuletzt aktive Session seines Ordners; wird eine andere Session des Ordners aktiv, wechselt sie auf diesen Key und die vorherige rückt auf den nächsten freien Key.
+
+### Acceptance Criteria
+
+- [ ] AC1: Zwei auf denselben Ordner gepinnte Keys zeigen die beiden neuesten Sessions dieses Ordners, neueste auf dem ersten Key.
+- [ ] AC2: Eine dritte Session desselben Ordners belegt einen freien ungepinnten Key oder wird nicht angezeigt, wenn keiner frei ist.
+- [ ] AC3: Ein Key mit `latestOnly` zeigt immer die Session seines Ordners mit dem neuesten Event; der Wechsel passiert beim Event, nicht erst beim nächsten Seed.
+- [ ] AC4: Nie liegen zwei Sessions auf demselben Slot (auch nicht kurzzeitig für Listener).
+- [ ] AC5: Der Property Inspector bietet die Checkbox "Nur neueste Session" (`latestOnly`), gespeichert in den Action-Settings.
+
+### Tests (TDD)
+
+1. `session-store.test.ts > "distributes a folder's sessions over its pinned slots by recency"` - AC1, AC4
+2. `> "extra sessions of a pinned folder take free unpinned slots"` - AC2
+3. `> "latestOnly slot follows the most recently active session"` - AC3, AC4
+4. `status-action.test.ts > "latestOnly setting reaches the store"` - AC5
+
+Testbefehl: `npm test`
+
+### Out of Scope
+
+- Sortieren ungepinnter Keys nach Aktualität (sie bleiben in Start-Reihenfolge).
+
+---
+
+## Package 16: Deep Link in die Desktop-Session
+
+**Ziel:** Ein Druck auf einen Status-Key öffnet die Session direkt im Chatfenster von Claude Desktop.
+
+**Abhängigkeiten:** Package 12
+
+**Betroffene Dateien:**
+- `com.claudedeck.streamdeck.sdPlugin/scripts/focus-window.ps1` (ändern: `-OpenSession <localId>`)
+- `src/win/focus-window.ts` (+ Test), `src/actions/status-action.ts` (+ Test), `src/plugin.ts`
+
+### Kontext
+
+Claude Desktop registriert das URL-Schema `claude://`. Der Handler akzeptiert `claude://code/continue?session=<localId>` mit `localId` nach `^local_[A-Za-z0-9-]{1,64}$` und navigiert zur Session (Live-Test: `lastFocusedAt` der Ziel-Session änderte sich). Die `localId` kommt aus dem Katalog (Package 12) über `cliSessionId` = Hook-`session_id`. Ohne Katalog-Eintrag (CLI-Session, Desktop-Update mit anderem Format) bleibt das bisherige Verhalten: Fenster fokussieren. Das URL-Schema ist intern und undokumentiert.
+
+### Acceptance Criteria
+
+- [ ] AC1: `openDesktopSession(localId)` startet `claude://code/continue?session=<localId>&source=claudedeck` und holt anschließend das Desktop-Fenster nach vorne.
+- [ ] AC2: Eine `localId`, die nicht zur Regel passt, wird weder in TypeScript noch im Skript akzeptiert (keine URL-Injektion).
+- [ ] AC3: Ein Druck auf einen Status-Key nutzt den Deep Link, wenn der Katalog die Session kennt, sonst den bisherigen Fenster-Fokus.
+- [ ] AC4: Schlägt der Deep Link fehl, folgt der bisherige Fenster-Fokus; erst wenn auch dieser scheitert, zeigt der Key `showAlert()`.
+- [ ] AC5: Manueller Check: Status-Key einer anderen Desktop-Session drücken, Desktop springt in diese Session.
+
+### Tests (TDD)
+
+1. `focus-window.test.ts > "opens a desktop session by validated local id"` - AC1, AC2
+2. `focus-window.test.ts > "refuses invalid local ids"` - AC2
+3. `status-action.test.ts > "press opens desktop session when known"` - AC3
+4. `status-action.test.ts > "press falls back to window focus"` - AC3, AC4
+
+Testbefehl: `npm test`
+
+### Out of Scope
+
+- Deep Links für CLI-Sessions (`claude://resume` würde die Session in Desktop importieren, nicht das Terminal öffnen).
+
+---
+
+## Package 17: Claude-Window-Actions
+
+**Ziel:** Je eine Action minimiert/stellt wieder her bzw. maximiert/stellt wieder her das Claude-Desktop-Fenster.
+
+**Abhängigkeiten:** keine
+
+**Betroffene Dateien:**
+- `com.claudedeck.streamdeck.sdPlugin/scripts/focus-window.ps1` (ändern: `-Window minimize|maximize|restore`, `-State`)
+- `com.claudedeck.streamdeck.sdPlugin/manifest.json`, `imgs/actions/window/`, `imgs/actions/maximize/` (neu)
+- `src/win/focus-window.ts` (+ Test), `src/actions/window-action.ts` (+ Test, neu), `src/render/window-key.ts` (+ Test, neu), `src/plugin.ts`, `src/plugin.test.ts`
+
+### Kontext
+
+Live-Test: `ShowWindow` mit `SW_MINIMIZE` (6), `SW_RESTORE` (9) und `SW_MAXIMIZE` (3) auf das Desktop-Fenster funktioniert, `IsIconic`/`IsZoomed` liefern den Zustand. Zwei Actions: "Claude Window" (minimiert, oder stellt wieder her und fokussiert, wenn es minimiert ist) und "Claude Maximize" (maximiert, oder stellt die normale Größe wieder her, wenn es maximiert ist). Das Desktop-Fenster wird wie in Package 9 erkannt (Prozess `claude`, Pfad unter `WindowsApps\Claude_`).
+
+### Acceptance Criteria
+
+- [ ] AC1: `focus-window.ps1 -Window minimize|maximize|restore -Hwnd <n>` setzt den Zustand; `-State -Hwnd <n>` liefert `{"minimized":bool,"maximized":bool}` als JSON.
+- [ ] AC2: "Claude Window": minimiert, wenn nicht minimiert; sonst wiederherstellen und fokussieren.
+- [ ] AC3: "Claude Maximize": maximiert, wenn nicht maximiert; sonst normale Größe; danach fokussiert.
+- [ ] AC4: Ohne Desktop-Fenster zeigt der Key `showAlert()`.
+- [ ] AC5: Beide Actions stehen im Manifest mit eigenem Icon und eigener Key-Grafik (SVG, SVG-Tiny-tauglich).
+- [ ] AC6: Nur Integer-Handles und die drei festen Befehle erreichen PowerShell.
+
+### Tests (TDD)
+
+1. `focus-window.test.ts > "window commands pass fixed verbs and integer handles"` - AC1, AC6
+2. `window-action.test.ts > "window key toggles minimize and restore"` - AC2
+3. `window-action.test.ts > "maximize key toggles maximize and normal size"` - AC3
+4. `window-action.test.ts > "alerts without desktop window"` - AC4
+5. `plugin.test.ts > "manifest declares window actions"` - AC5
+6. `window-key` Render-Test - AC5
+
+Testbefehl: `npm test`
+
+### Out of Scope
+
+- Fenstersteuerung für Terminals.
