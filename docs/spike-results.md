@@ -130,3 +130,16 @@ answered setMode
 - **CLI: Go.** Der Modus wechselt sofort, sichtbar am `permission_mode` aller folgenden Events.
 - **Desktop: offen (manuell).** Ob die Desktop-Oberfläche den neuen Modus anzeigt, prüft der Nutzer zusammen mit Package 7 AC8.
 - Ein Moduswechsel ohne offene Anfrage bleibt nicht möglich (nicht dokumentiert).
+
+
+## Package 20: Plugin-Module (Spike)
+
+Test: Modul `scratchpad/spike-module` (`hooks/hooks.json` mit `"modules": ["./register.ts"]`), geladen per `claude -p --plugin-dir`, sendet an einen Spike-Server auf Port 37420.
+
+- **Ohne Freischaltung lädt kein Modul.** Debug-Log: `hooks module claudedeck-module-spike@inline not loaded: hooks modules are not turned on for installed plugins in this process (early access: set CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 ...)`. Das gilt auch für `--plugin-dir`.
+- **Mit `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` (CLI): Go.** `hooks module claudedeck-module-spike@inline loaded (worker, environment 1, tier user)`. Beim Server kamen an:
+  - `/module/start` mit Session-ID (gleich der Hook-`session_id`), `cwd`, `context: { window: 200000 }`, `rateLimits: []` (im `-p`-Modus vor dem ersten API-Aufruf leer)
+  - `/module/turn` mit der `turnId` des laufenden Turns (Voraussetzung für `$.turn.abort`)
+  - drei `/module/tick` im 2-s-Takt (`$.clock.every` funktioniert)
+- **Desktop: offen.** Desktop-Sessions laden Plugins aus Ordnern nur über `CLAUDE_CODE_PLUGIN_DIRS`, und Module brauchen zusätzlich `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. Beides müsste in die `env` von `~/.claude/settings.json` und gilt dann für jede Session (auch für andere Plugins mit Modulen). Test erst nach Zustimmung des Nutzers, in einer neuen Desktop-Session.
+- **Vorläufige Bewertung:** Technisch Go. Risiko: Early-Access-Schalter, API kann sich ändern; ClaudeDeck muss ohne Modul weiter funktionieren (Hooks bleiben die Basis, das Modul ergänzt Interrupt, exakten Kontext, Rate Limits).

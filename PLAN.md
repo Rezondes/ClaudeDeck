@@ -28,6 +28,7 @@ Hinweis zur Reihenfolge: Die Packages folgen den technischen Abhängigkeiten, ni
 | 19 | Eine Fenster-Action (Min/Max) | Eine Action maximiert oder minimiert Claude Desktop je nach Zustand und zeigt die nächste Aktion. | 17 |
 | 20 | Spike: Plugin-Module in Desktop | Es ist belegt, ob Plugin-Module in Claude Desktop laden und mit ClaudeDeck sprechen. | - |
 | 21 | Fragen nur über den Status-Key | Fragen von Claude lassen Allow/Always/Deny dunkel; nur der Status-Key blinkt, wartende Sessions ohne Key sind sichtbar. | 13, 16 |
+| 22 | Hintergrund-Agenten zählen als Working | Eine Session mit laufenden Hintergrund-Agenten bleibt Working statt Done. | 2 |
 
 Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen. Packages 12 und 17 sind unabhängig voneinander; 13 bis 16 folgen auf 12 (14, 15 und 16 berühren dieselben Dateien und laufen nacheinander).
 
@@ -1104,3 +1105,31 @@ Mehrere Sessions mit offenen Fragen: Jede Session blinkt auf ihrem eigenen Key. 
 4. `status-action.test.ts > "pressing the waiting key opens needs-input"` - AC4
 5. `focus-window.test.ts > "opens needs-input with a fixed command"` - AC5
 6. `render.test.ts > "waiting key renders count"` - AC3
+[INFO] Recording command outcome: cat
+
+[OK] Command outcome recorded
+
+---
+
+## Package 22: Hintergrund-Agenten zählen als Working
+
+**Ziel:** Eine Session, deren Hauptagent auf Hintergrund-Agenten wartet, zeigt "Working" statt "Done" oder "Idle".
+
+**Abhängigkeiten:** Package 2
+
+### Kontext
+
+Gemeldet vom Nutzer: Übergibt die Session eine Aufgabe an einen Hintergrund-Agenten, endet der Turn des Hauptagenten und Claude Code feuert `Stop`; der Key zeigt "Done" (nach 10 min "Idle"), obwohl gearbeitet wird. Erst das nächste Event des Agenten setzt wieder "Working". Der `Stop`-Payload enthält `background_tasks` (Spike Package 0: `"background_tasks":[]`). Ein `Stop` mit nicht leerer Liste bedeutet: Hauptagent wartet, Arbeit läuft.
+
+### Acceptance Criteria
+
+- [ ] AC1: `Stop` mit nicht leerem `background_tasks` setzt bzw. hält die Session auf `working`.
+- [ ] AC2: `Stop` mit leerem oder fehlendem `background_tasks` setzt `done` wie bisher.
+- [ ] AC3: Eine `working`-Session wird vom 10-Minuten-Timer nicht zu `idle` (bestehendes Verhalten bleibt korrekt).
+- [ ] AC4: Kontext wird bei jedem `Stop` gelesen, auch mit laufenden Hintergrund-Agenten.
+
+### Tests (TDD)
+
+1. `session-store.test.ts > "Stop with running background tasks keeps working"` - AC1, AC3
+2. `session-store.test.ts > "Stop without background tasks is done"` - AC2
+3. `status-action.test.ts > "reads context on Stop with background tasks"` - AC4
