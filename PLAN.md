@@ -24,6 +24,9 @@ Hinweis zur Reihenfolge: Die Packages folgen den technischen Abhängigkeiten, ni
 | 15 | Mehrere Sessions pro Ordner | Mehrere Keys mit demselben Ordner zeigen dessen Sessions nach Aktualität verteilt; optional zeigt ein Key nur die neueste. | 13 |
 | 16 | Deep Link in die Desktop-Session | Ein Druck auf einen Status-Key öffnet die Session direkt im Chatfenster von Claude Desktop. | 12 |
 | 17 | Claude-Window-Actions | Je eine Action minimiert/stellt wieder her bzw. maximiert/stellt wieder her das Claude-Desktop-Fenster. | - |
+| 18 | Permission-Modus-Key entfernen | Der Modus-Key ist entfernt, weil er bei mehreren Sessions nicht vorhersehbar wirkt. | - |
+| 19 | Eine Fenster-Action (Min/Max) | Eine Action maximiert oder minimiert Claude Desktop je nach Zustand und zeigt die nächste Aktion. | 17 |
+| 20 | Spike: Plugin-Module in Desktop | Es ist belegt, ob Plugin-Module in Claude Desktop laden und mit ClaudeDeck sprechen. | - |
 
 Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen. Packages 12 und 17 sind unabhängig voneinander; 13 bis 16 folgen auf 12 (14, 15 und 16 berühren dieselben Dateien und laufen nacheinander).
 
@@ -997,3 +1000,72 @@ Testbefehl: `npm test`
 [INFO] Recording command outcome: cat
 
 [OK] Command outcome recorded
+
+---
+
+## Package 18: Permission-Modus-Key entfernen
+
+**Ziel:** Der Permission-Modus-Key ist aus Plugin, Manifest und Code entfernt.
+
+**Abhängigkeiten:** keine
+
+### Kontext
+
+Der Modus-Key wirkt immer auf die älteste offene Anfrage, unabhängig von Session und Repo. Bei mehreren parallelen Sessions über mehrere Repos ist nicht vorhersehbar, welche Session ihren Modus wechselt (Entscheidung des Nutzers nach Package 11). `approveWithMode` in `PendingApprovals` entfällt mit, weil es keinen anderen Aufrufer hat.
+
+### Acceptance Criteria
+
+- [ ] AC1: `manifest.json` enthält keine Action `com.claudedeck.streamdeck.mode`; `imgs/actions/mode/` und `ui/mode.html` sind gelöscht.
+- [ ] AC2: `src/actions/mode-action.ts`, `src/render/mode-key.ts` und ihre Tests sind gelöscht; `approveWithMode` und sein Test sind entfernt; `plugin.ts` registriert die Action nicht mehr.
+- [ ] AC3: Der Manifest-Test prüft, dass keine Mode-Action existiert.
+- [ ] AC4: `npm test`, `npx tsc --noEmit` und `npm run build` sind grün.
+
+---
+
+## Package 19: Eine Fenster-Action (Min/Max-Wechsel)
+
+**Ziel:** Eine einzige Action "Claude Window" maximiert oder minimiert das Claude-Desktop-Fenster je nach Zustand und zeigt die nächste Aktion an.
+
+**Abhängigkeiten:** Package 17
+
+### Kontext
+
+Entscheidung des Nutzers: nur Min/Max-Wechsel. Ist das Fenster maximiert, minimiert ein Druck; ist es minimiert oder normal, maximiert ein Druck. Die normale Größe erreicht man nur noch per Hand. Die zwei Actions aus Package 17 werden zu einer zusammengelegt (`com.claudedeck.streamdeck.window` bleibt, `com.claudedeck.streamdeck.maximize` entfällt). Damit der Key die richtige nächste Aktion zeigt, wird der Fensterzustand regelmäßig gelesen. Ein PowerShell-Start pro Abfrage ist zu teuer; stattdessen läuft ein einziger langlebiger PowerShell-Prozess (`focus-window.ps1 -Watch`), der jede Sekunde eine Zeile JSON mit `{ hwnd, minimized, maximized }` (oder `{ hwnd: 0 }` ohne Desktop-Fenster) ausgibt. Er läuft nur, solange mindestens ein Fenster-Key sichtbar ist.
+
+### Acceptance Criteria
+
+- [ ] AC1: Druck bei maximiertem Fenster minimiert; Druck bei minimiertem oder normalem Fenster maximiert (und holt das Fenster nach vorne).
+- [ ] AC2: Der Key zeigt "Minimize" mit Minimieren-Symbol, wenn das Fenster maximiert ist, sonst "Maximize" mit Maximieren-Symbol; ohne Desktop-Fenster gedimmt "No window".
+- [ ] AC3: `focus-window.ps1 -Watch` gibt pro Sekunde genau eine JSON-Zeile aus, solange es läuft; der Plugin-Prozess startet ihn beim ersten sichtbaren Fenster-Key und beendet ihn, wenn keiner mehr sichtbar ist.
+- [ ] AC4: Zustandsänderungen von außen (Fenster per Maus minimiert) erscheinen spätestens nach 2 s auf dem Key.
+- [ ] AC5: Die Action `com.claudedeck.streamdeck.maximize` ist aus dem Manifest entfernt; der Manifest-Test prüft das.
+- [ ] AC6: Ohne Desktop-Fenster zeigt ein Druck `showAlert()`.
+
+### Tests (TDD)
+
+1. `window-action.test.ts > "press maximizes unless maximized, then minimizes"` - AC1
+2. `window-action.test.ts > "key shows the next action from the watched state"` - AC2, AC4
+3. `window-watch.test.ts > "parses one state per line and ignores garbage"` - AC3
+4. `window-watch.test.ts > "starts with the first visible key and stops with the last"` - AC3 (Prozess als Fake injiziert)
+5. `plugin.test.ts > "manifest has one window action"` - AC5
+6. `window-action.test.ts > "alerts without desktop window"` - AC6
+
+---
+
+## Package 20: Spike - Plugin-Module in Claude Desktop
+
+**Ziel:** Es ist belegt, ob ein Claude-Code-Plugin-Modul (eigener Code in jeder Session) in Claude Desktop lädt und mit dem Stream-Deck-Plugin sprechen kann.
+
+**Abhängigkeiten:** keine
+
+### Kontext
+
+Neben Hooks kennt Claude Code Plugin-Module (`hooks/hooks.json` mit `"modules"`, Datei `register.ts`), die in jeder Session laufen und eine viel größere API haben: `turn.abort` (laufende Antwort genau dieser Session abbrechen), `session.usage` (exakte Kontextauslastung), `prompt.submit` (Prompt senden), `$.http.fetch` und `$.clock.every` (mit dem Stream-Deck-Plugin sprechen). Laut Debug-Log werden Module installierter Plugins derzeit nicht geladen (`rollout flag (tengu_plugin_hooks_modules) is off`); geladen werden Module aus Entwickler-Ordnern (`--plugin-dir`, `CLAUDE_CODE_PLUGIN_DIRS` in der `env` von `~/.claude/settings.json`, Hot-Reload-Mods).
+
+### Acceptance Criteria
+
+- [ ] AC1: `docs/spike-results.md` sagt, ob ein Modul per `claude -p --plugin-dir` lädt (`session.start` erreicht den Server).
+- [ ] AC2: Das Dokument sagt, ob ein Modul in einer Claude-Desktop-Session lädt (Hot-Reload-Mod dieser Session oder `CLAUDE_CODE_PLUGIN_DIRS`) und `$.http.fetch` den Server auf `127.0.0.1:37419` erreicht.
+- [ ] AC3: Das Dokument sagt, ob `$.clock.every` und `session.usage` in Desktop funktionieren.
+- [ ] AC4: Das Dokument endet mit Go/No-Go und dem Weg, wie ClaudeDeck das Modul dauerhaft für alle Sessions laden würde, inklusive Folgen für die Nutzer-Settings.
+- [ ] AC5: Nach dem Spike sind keine Spike-Einstellungen zurückgeblieben (Settings unverändert oder wiederhergestellt).
