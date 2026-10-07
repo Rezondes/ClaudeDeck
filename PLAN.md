@@ -27,6 +27,7 @@ Hinweis zur Reihenfolge: Die Packages folgen den technischen Abhängigkeiten, ni
 | 18 | Permission-Modus-Key entfernen | Der Modus-Key ist entfernt, weil er bei mehreren Sessions nicht vorhersehbar wirkt. | - |
 | 19 | Eine Fenster-Action (Min/Max) | Eine Action maximiert oder minimiert Claude Desktop je nach Zustand und zeigt die nächste Aktion. | 17 |
 | 20 | Spike: Plugin-Module in Desktop | Es ist belegt, ob Plugin-Module in Claude Desktop laden und mit ClaudeDeck sprechen. | - |
+| 21 | Fragen nur über den Status-Key | Fragen von Claude lassen Allow/Always/Deny dunkel; nur der Status-Key blinkt, wartende Sessions ohne Key sind sichtbar. | 13, 16 |
 
 Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen. Packages 12 und 17 sind unabhängig voneinander; 13 bis 16 folgen auf 12 (14, 15 und 16 berühren dieselben Dateien und laufen nacheinander).
 
@@ -1069,3 +1070,37 @@ Neben Hooks kennt Claude Code Plugin-Module (`hooks/hooks.json` mit `"modules"`,
 - [ ] AC3: Das Dokument sagt, ob `$.clock.every` und `session.usage` in Desktop funktionieren.
 - [ ] AC4: Das Dokument endet mit Go/No-Go und dem Weg, wie ClaudeDeck das Modul dauerhaft für alle Sessions laden würde, inklusive Folgen für die Nutzer-Settings.
 - [ ] AC5: Nach dem Spike sind keine Spike-Einstellungen zurückgeblieben (Settings unverändert oder wiederhergestellt).
+[INFO] Recording command outcome: cat
+
+[OK] Command outcome recorded
+
+---
+
+## Package 21: Fragen von Claude nur über den Status-Key
+
+**Ziel:** Fragen von Claude (`AskUserQuestion`) lassen Allow/Always/Deny dunkel, nur der Status-Key der Session blinkt lila; wartende Sessions ohne eigenen Key sind trotzdem sichtbar.
+
+**Abhängigkeiten:** Package 13, Package 16
+
+### Kontext
+
+Gemeldet vom Nutzer: Stellt Claude eine Frage, leuchten Allow, Always und Deny auf. Claude Code schickt für das Tool `AskUserQuestion` einen `PermissionRequest`; ClaudeDeck stellt ihn wie jede Freigabe in die Warteschlange und zeigt die Session als `approval`. Eine Frage lässt sich aber nicht per Allow/Deny beantworten. Neu: Der Hook-Server beantwortet `PermissionRequest` für `AskUserQuestion` sofort mit `{}` (normale Abfrage in Claude), reicht ihn nicht an die Warteschlange und zählt ihn im Session-Store nicht als offene Freigabe; die Session bleibt `input` (gesetzt durch `PreToolUse` mit `AskUserQuestion`). Ein Druck auf den Status-Key öffnet die Session (Package 16).
+
+Mehrere Sessions mit offenen Fragen: Jede Session blinkt auf ihrem eigenen Key. Eine wartende Session ohne eigenen Key (mehr Sessions als Keys) war bisher unsichtbar. Neu: Ein Status-Key ohne Session zeigt "N waiting", wenn N > 0 Sessions im Zustand `input` oder `approval` keinen Key haben; ein Druck darauf öffnet `claude://code/needs-input` ("Sessions Waiting for You" in Claude Desktop).
+
+### Acceptance Criteria
+
+- [ ] AC1: Ein `PermissionRequest` mit `tool_name` `AskUserQuestion` wird sofort mit `200 {}` beantwortet und landet nicht in `PendingApprovals`; Allow/Always/Deny bleiben dunkel.
+- [ ] AC2: Der Session-Store zählt einen solchen `PermissionRequest` nicht als offene Freigabe; die Session bleibt bzw. wird `input`.
+- [ ] AC3: Ein leerer Status-Key zeigt "N waiting" (lila), solange N Sessions im Zustand `input` oder `approval` auf keinem Key liegen; sonst bleibt er leer wie bisher.
+- [ ] AC4: Ein Druck auf einen solchen Key öffnet `claude://code/needs-input?source=claudedeck` und holt das Desktop-Fenster nach vorne; ohne Desktop-Fenster `showAlert()`.
+- [ ] AC5: `focus-window.ps1 -OpenNeedsInput` startet ausschließlich diese feste URL.
+
+### Tests (TDD)
+
+1. `hook-server.test.ts > "answers AskUserQuestion permission requests immediately without queueing"` - AC1
+2. `session-store.test.ts > "AskUserQuestion permission request does not count as approval"` - AC2
+3. `status-action.test.ts > "empty key shows sessions waiting without a key"` - AC3
+4. `status-action.test.ts > "pressing the waiting key opens needs-input"` - AC4
+5. `focus-window.test.ts > "opens needs-input with a fixed command"` - AC5
+6. `render.test.ts > "waiting key renders count"` - AC3
