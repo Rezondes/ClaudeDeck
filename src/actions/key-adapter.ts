@@ -1,4 +1,4 @@
-import { SingletonAction, type KeyDownEvent, type WillAppearEvent, type WillDisappearEvent } from "@elgato/streamdeck";
+import { SingletonAction, type DidReceiveSettingsEvent, type KeyDownEvent, type WillAppearEvent, type WillDisappearEvent } from "@elgato/streamdeck";
 
 import type { KeyView } from "./key-view.js";
 
@@ -7,6 +7,8 @@ export interface KeyController {
 	appear(view: KeyView, ev: WillAppearEvent): void;
 	disappear(id: string): void;
 	press(view: KeyView): void;
+	/** Property inspector changed this key's settings. */
+	settingsChanged?(id: string, settings: Record<string, unknown>): void;
 }
 
 /** Routes Stream Deck key events for one manifest UUID to a controller. No decorator needed. */
@@ -29,5 +31,9 @@ export class KeyAdapter extends SingletonAction {
 
 	override onKeyDown(ev: KeyDownEvent): void {
 		this.controller.press(ev.action);
+	}
+
+	override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void {
+		this.controller.settingsChanged?.(ev.action.id, ev.payload.settings);
 	}
 }

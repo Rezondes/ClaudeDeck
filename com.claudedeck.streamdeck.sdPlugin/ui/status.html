@@ -4,5 +4,15 @@
 	<meta charset="utf-8" />
 	<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
 </head>
-<body></body>
+<body>
+	<sdpi-item label="Project folder">
+		<sdpi-textfield setting="project" placeholder="F:\Code\MyProject (optional)"></sdpi-textfield>
+	</sdpi-item>
+	<sdpi-item>
+		<details>
+			<summary>Help</summary>
+			<p>Leave empty to show Claude Code sessions in the order they start. Enter a project folder to always show that project's session on this key.</p>
+		</details>
+	</sdpi-item>
+</body>
 </html>

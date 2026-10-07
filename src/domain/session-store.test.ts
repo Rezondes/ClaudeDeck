@@ -107,6 +107,26 @@ describe("SessionStore", () => {
 		expect([store.get("web")?.slot, store.get("api")?.slot]).toEqual([1, 0]);
 	});
 
+	it("setPins moves running sessions into their pinned slot and the occupant out of it", () => {
+		// The status key settings arrive after the hook server already created sessions.
+		const store = new SessionStore(() => 0);
+		const changed: string[] = [];
+		store.onChange((id) => changed.push(id));
+		store.handle(event("UserPromptSubmit", { session_id: "web", cwd: "F:\\Code\\web-app" }));
+		store.handle(event("UserPromptSubmit", { session_id: "api", cwd: "F:\\Code\\api-svc" }));
+		changed.length = 0;
+		store.setPins(new Map([[0, "F:\\Code\\api-svc"]]));
+		expect([store.get("api")?.slot, store.get("web")?.slot]).toEqual([0, 1]);
+		expect(changed.sort()).toEqual(["api", "web"]);
+	});
+
+	it("lists all sessions", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(event("UserPromptSubmit", { session_id: "a" }));
+		store.handle(event("UserPromptSubmit", { session_id: "b" }));
+		expect(store.sessions().map((s) => s.id)).toEqual(["a", "b"]);
+	});
+
 	it("pinned cwd matches case-insensitively and ignores a trailing backslash", () => {
 		const store = new SessionStore(() => 0);
 		store.setPins(new Map([[2, "f:\\code\\API-SVC\\"]]));

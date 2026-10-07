@@ -136,9 +136,24 @@ export class SessionStore {
 		}
 	}
 
-	/** Binds status key slots to project folders. Applies to sessions created afterwards. */
+	/** Binds status key slots to project folders. Running sessions move into their pinned slot. */
 	setPins(pins: Map<number, string>): void {
 		this.#pins = new Map([...pins].map(([slot, cwd]) => [slot, normalizeCwd(cwd)]));
+		// Running sessions move into their pinned slot; whoever sat there gets the next free slot.
+		for (const [slot, cwd] of this.#pins) {
+			const session = [...this.#sessions.values()].find((s) => normalizeCwd(s.cwd) === cwd);
+			if (!session || session.slot === slot) continue;
+			const occupant = [...this.#sessions.values()].find((s) => s.slot === slot);
+			if (occupant) occupant.slot = -1; // vacate first so no listener ever sees two sessions on one slot
+			session.slot = slot;
+			if (occupant) occupant.slot = this.#freeSlot(occupant.cwd);
+			this.#notify(session.id);
+			if (occupant) this.#notify(occupant.id);
+		}
+	}
+
+	sessions(): Session[] {
+		return [...this.#sessions.values()];
 	}
 
 	/** The pinned slot for this cwd if it is free, else the lowest slot that is neither taken nor pinned. */

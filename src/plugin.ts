@@ -2,6 +2,8 @@ import streamDeck from "@elgato/streamdeck";
 
 import { DecisionKeys } from "./actions/decision-action.js";
 import { KeyAdapter } from "./actions/key-adapter.js";
+import { StatusKeys, type StatusSettings } from "./actions/status-action.js";
+import { readContextUsage } from "./domain/context-usage.js";
 import { SessionStore } from "./domain/session-store.js";
 import type { DecisionKind } from "./render/decision-key.js";
 import { HOOK_PORT } from "./server/hook-contract.js";
@@ -23,7 +25,24 @@ const decisionKeys = (["allow", "always", "deny"] as DecisionKind[]).map((kind) 
 	return keys;
 });
 
-const server = createHookServer({ onEvent: (event) => store.handle(event), approvals, log: (message) => log.error(message) });
+const statusKeys = new StatusKeys(store, readContextUsage);
+streamDeck.actions.registerAction(
+	new KeyAdapter("com.claudedeck.streamdeck.status", {
+		appear: (view, ev) => statusKeys.appear(view, ev.action.isKey() ? ev.action.coordinates : undefined, ev.payload.settings as StatusSettings),
+		disappear: (id) => statusKeys.disappear(id),
+		press: (view) => statusKeys.press(view),
+		settingsChanged: (id, settings) => statusKeys.settingsChanged(id, settings as StatusSettings),
+	}),
+);
+
+const server = createHookServer({
+	onEvent: (event) => {
+		store.handle(event);
+		statusKeys.hookEvent(event);
+	},
+	approvals,
+	log: (message) => log.error(message),
+});
 server.listen(HOOK_PORT).then((ok) => {
 	online = ok;
 	if (ok) log.info(`hook server listening on 127.0.0.1:${HOOK_PORT}`);
