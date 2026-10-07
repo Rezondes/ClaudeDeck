@@ -94,11 +94,6 @@ export class PendingApprovals {
 		});
 	}
 
-	/** Allow and switch the session's permission mode (Package 11, docs/spike-results.md). */
-	approveWithMode(mode: string): void {
-		this.#settleOldest(() => decision({ behavior: "allow", updatedPermissions: [{ type: "setMode", mode, destination: "session" }] }));
-	}
-
 	deny(): void {
 		this.#settleOldest(() => decision({ behavior: "deny", message: "Denied via ClaudeDeck" }));
 	}

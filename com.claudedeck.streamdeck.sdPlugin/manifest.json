@@ -69,23 +69,6 @@
 			"UserTitleEnabled": false
 		},
 		{
-			"Name": "Permission Mode",
-			"UUID": "com.claudedeck.streamdeck.mode",
-			"Icon": "imgs/actions/mode/icon",
-			"Tooltip": "Approve the pending request and switch the session permission mode.",
-			"PropertyInspectorPath": "ui/mode.html",
-			"Controllers": [
-				"Keypad"
-			],
-			"States": [
-				{
-					"Image": "imgs/actions/mode/key",
-					"TitleAlignment": "middle"
-				}
-			],
-			"UserTitleEnabled": false
-		},
-		{
 			"Name": "Claude Window",
 			"UUID": "com.claudedeck.streamdeck.window",
 			"Icon": "imgs/actions/window/icon",

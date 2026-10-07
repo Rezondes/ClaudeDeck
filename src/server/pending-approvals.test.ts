@@ -72,19 +72,6 @@ describe("PendingApprovals", () => {
 		});
 	});
 
-	it("approveWithMode adds session setMode", () => {
-		const approvals = new PendingApprovals();
-		const respond = vi.fn();
-		approvals.add(request("a"), respond);
-		approvals.approveWithMode("plan");
-		expect(respond).toHaveBeenCalledWith({
-			hookSpecificOutput: {
-				hookEventName: "PermissionRequest",
-				decision: { behavior: "allow", updatedPermissions: [{ type: "setMode", mode: "plan", destination: "session" }] },
-			},
-		});
-	});
-
 	it("times out after 60s with empty decision", () => {
 		const approvals = new PendingApprovals();
 		const respond = vi.fn();
