@@ -69,22 +69,6 @@
 			"UserTitleEnabled": false
 		},
 		{
-			"Name": "Interrupt",
-			"UUID": "com.claudedeck.streamdeck.interrupt",
-			"Icon": "imgs/actions/interrupt/icon",
-			"Tooltip": "Interrupt a running Claude Code session.",
-			"Controllers": [
-				"Keypad"
-			],
-			"States": [
-				{
-					"Image": "imgs/actions/interrupt/key",
-					"TitleAlignment": "middle"
-				}
-			],
-			"UserTitleEnabled": false
-		},
-		{
 			"Name": "Permission Mode",
 			"UUID": "com.claudedeck.streamdeck.mode",
 			"Icon": "imgs/actions/mode/icon",

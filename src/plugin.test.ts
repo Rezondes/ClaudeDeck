@@ -6,9 +6,13 @@ const manifest = JSON.parse(readFileSync(new URL("../com.claudedeck.streamdeck.s
 describe("manifest", () => {
 	it("declares all ClaudeDeck actions", () => {
 		const uuids = manifest.Actions.map((a: { UUID: string }) => a.UUID);
-		for (const name of ["allow", "always", "deny", "status", "interrupt", "mode"]) {
+		for (const name of ["allow", "always", "deny", "status", "mode"]) {
 			expect(uuids).toContain(`com.claudedeck.streamdeck.${name}`);
 		}
+	});
+
+	it("has no interrupt action (Package 10 No-Go, docs/spike-results.md)", () => {
+		expect(manifest.Actions.map((a: { UUID: string }) => a.UUID)).not.toContain("com.claudedeck.streamdeck.interrupt");
 	});
 
 	it("targets Windows and Stream Deck 7.1+", () => {

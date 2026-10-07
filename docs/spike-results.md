@@ -89,7 +89,8 @@ StreamDeck   Stream Deck
 - Desktop: Prozess `claude` mit Fenstertitel `Claude`, Pfad unter `WindowsApps\Claude_*`.
 - Desktop-Code-Sessions laufen als `claude.exe` unter `%APPDATA%\Claude\claude-code\<version>\`, ohne eigenes Fenster.
 - Fenstertitel eines Terminals mit CLI-Session: **offen (manuell)**, zum Zeitpunkt des Spikes lief kein interaktives CLI. Wird in Package 9 AC6 geprüft. Annahme: Windows Terminal zeigt den von Claude Code gesetzten Titel bzw. den Ordnernamen.
-- Der Payload unterscheidet Desktop und CLI **nicht**. Package 9 nutzt deshalb eine Heuristik: zuerst ein Terminal-Fenster suchen, dessen Titel den Projektnamen enthält, sonst das Desktop-Fenster.
+- Der Payload unterscheidet Desktop und CLI **nicht**.
+- Grenze der Fensterliste (Package 9): `focus-window.ps1` liefert pro Prozess nur das Hauptfenster (`MainWindowHandle`). Ein zweites Windows-Terminal-Fenster oder ein inaktiver Tab wird nicht gefunden; `pwsh` oder `cmd` innerhalb von Windows Terminal haben kein eigenes Fenster. Package 9 nutzt deshalb eine Heuristik: zuerst ein Terminal-Fenster suchen, dessen Titel den Projektnamen enthält, sonst das Desktop-Fenster.
 
 ## AC8: Go/No-Go
 
@@ -99,3 +100,33 @@ StreamDeck   Stream Deck
 ## AC9: Aufräumen
 
 Das Spike-Plugin wurde nur per `--plugin-dir` für einzelne `-p`-Läufe geladen, nie installiert. Es gibt nichts zu deinstallieren. `~/.claude/settings.json` wurde nicht angefasst.
+
+## Package 10: Interrupt (Go/No-Go)
+
+**Entscheidung: No-Go.**
+
+Einziger Weg von außen wäre: Fenster fokussieren und `Esc` per `SendInput` senden. Der Test von AC1 (5 von 5 Abbrüchen) wurde bewusst **nicht** in Desktop durchgeführt, weil die ClaudeDeck-Entwicklung selbst in einer Desktop-Session lief und ein `Esc` diese Session abgebrochen hätte. Das zeigt das Grundproblem:
+
+- Claude Desktop hat ein Fenster für alle Sessions. `Esc` trifft die **gerade sichtbare** Session, nicht die Session des gedrückten Keys. Wer gerade Session B liest und den Interrupt für Session A drückt, bricht B ab.
+- Im CLI trifft `Esc` den aktiven Tab von Windows Terminal, ebenfalls nicht zwingend die gemeinte Session.
+- Es gibt keine dokumentierte Schnittstelle, eine bestimmte Session zu unterbrechen.
+
+Der CLI-Teil des Tests wurde ebenfalls nicht durchgeführt: Die Entscheidung beruht auf dem Zielproblem, nicht auf der Frage, ob `Esc` technisch ankommt.
+
+Ein Key, der zuverlässig die falsche Session abbrechen kann, ist schlechter als kein Key. Die Interrupt-Action wurde deshalb aus dem Manifest entfernt (AC5). Neu bewerten, sobald Claude Code einen Interrupt per Session-ID anbietet.
+
+## Package 11: Permission-Modus (Go/No-Go)
+
+Test: Spike-Server auf Port 37420 antwortet auf `PermissionRequest` mit `allow` plus `updatedPermissions: [{ type: "setMode", mode: "acceptEdits", destination: "session" }]`.
+
+```
+/hook/PermissionRequest Bash default
+answered setMode
+/hook/PostToolUse Bash acceptEdits
+/hook/PreToolUse Write acceptEdits     <- Write lief ohne Rückfrage
+/hook/Stop  acceptEdits
+```
+
+- **CLI: Go.** Der Modus wechselt sofort, sichtbar am `permission_mode` aller folgenden Events.
+- **Desktop: offen (manuell).** Ob die Desktop-Oberfläche den neuen Modus anzeigt, prüft der Nutzer zusammen mit Package 7 AC8.
+- Ein Moduswechsel ohne offene Anfrage bleibt nicht möglich (nicht dokumentiert).

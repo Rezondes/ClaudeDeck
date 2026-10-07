@@ -149,7 +149,7 @@ Das Projekt ist leer. Das Stream Deck CLI ist nicht installiert. Das offizielle 
 
 - [ ] AC1: `npm run build` erzeugt `com.claudedeck.streamdeck.sdPlugin/bin/plugin.js` ohne Fehler.
 - [ ] AC2: `npm test` läuft durch und führt mindestens einen Test aus.
-- [ ] AC3: `streamdeck link com.claudedeck.streamdeck.sdPlugin` ist erfolgt. Nach `npm run reload` erscheint "ClaudeDeck" mit allen sechs Actions in der Stream Deck App (manueller Check).
+- [ ] AC3: `streamdeck link com.claudedeck.streamdeck.sdPlugin` ist erfolgt. Nach `npm run reload` erscheint "ClaudeDeck" mit allen Actions (fünf, seit Interrupt durch das No-Go in Package 10 entfallen ist) in der Stream Deck App (manueller Check).
 - [ ] AC4: `manifest.json` deklariert `"OS": [{ "Platform": "windows", "MinimumVersion": "10" }]` und `"Software": { "MinimumVersion": "7.1" }` (SDK 3 des `@elgato/streamdeck`-Pakets verlangt 7.1).
 - [ ] AC5: `.gitignore` enthält `node_modules/`, `*.sdPlugin/bin/`, `*.log`, `.claude-flow/`, `.swarm/`, `ruvector.db` (bereits vor Package 0 angelegt).
 
