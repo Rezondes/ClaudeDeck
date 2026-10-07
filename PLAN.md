@@ -415,7 +415,7 @@ Erwartete Form eines Eintrags in `hooks.json` (endgültig laut Spike):
 - [ ] AC4: `plugin.json` hat `name: "claudedeck"`, eine Versionsnummer und eine Beschreibung. `marketplace.json` im Repo-Root listet das Plugin mit `source: "./claude-plugin"`.
 - [ ] AC5: Port und URL-Präfix stehen in genau einer Konstante im Stream-Deck-Code (`src/server/hook-contract.ts`). Ein Test stellt sicher, dass `hooks.json` dieselben Werte verwendet, damit beide Seiten nicht auseinanderlaufen.
 - [ ] AC6: entfällt laut Spike AC0 (HTTP-Hooks funktionieren in Plugins, kein `forward.mjs` nötig).
-- [ ] AC7: Manueller Check: `/plugin marketplace add F:\Code\ClaudeDeck` und `/plugin install claudedeck@claudedeck` in Desktop, dann Neustart. Events kommen beim laufenden Stream-Deck-Plugin an. Nach `/plugin disable claudedeck` kommen keine Events mehr, und Freigaben laufen wieder normal über Desktop.
+- [ ] AC7: Manueller Check: `/plugin marketplace add F:\Code\ClaudeDeck` und `/plugin install claudedeck@claudedeck` in Desktop, dann Neustart. Events kommen beim laufenden Stream-Deck-Plugin an. Nach `/plugin disable claudedeck` kommen keine Events mehr, und Freigaben laufen wieder normal über Desktop. (Verschoben in den End-to-End-Check von Package 7 AC8, da der Hook-Server erst mit Package 4 existiert. Vorab belegt: Lauf per `--plugin-dir` im CLI liefert alle Events.)
 
 ### Tests (TDD)
 

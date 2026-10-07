@@ -1,0 +1,16 @@
+{
+	"name": "claudedeck",
+	"owner": {
+		"name": "Steven Richter"
+	},
+	"metadata": {
+		"description": "ClaudeDeck: Claude Code permission prompts and session status on your Elgato Stream Deck"
+	},
+	"plugins": [
+		{
+			"name": "claudedeck",
+			"source": "./claude-plugin",
+			"description": "Claude Code hooks for the ClaudeDeck Stream Deck plugin"
+		}
+	]
+}
