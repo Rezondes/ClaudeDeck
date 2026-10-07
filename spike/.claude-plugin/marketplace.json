@@ -1,0 +1,5 @@
+{
+  "name": "claudedeck-spike",
+  "owner": { "name": "ClaudeDeck" },
+  "plugins": [{ "name": "claudedeck-spike", "source": "./claudedeck-spike", "description": "ClaudeDeck hook spike" }]
+}

@@ -54,7 +54,7 @@ Stream Deck Plugin "ClaudeDeck"           Repo-Root (src/, com.claudedeck.stream
 - Status-Key-Slots füllen sich automatisch in der Reihenfolge der Session-Starts. Optional lässt sich ein Key im Property Inspector fest an einen Projektordner binden.
 - Done (grün) bleibt, bis der Key gedrückt oder ein neuer Prompt gesendet wird, spätestens 10 min lang. Danach Idle (grau). `SessionEnd` gibt den Slot frei.
 - Fokus in Desktop: Nur das Fenster kommt nach vorne. Eine bestimmte Session in der Seitenleiste auszuwählen ist nicht möglich, weil kein Deep Link dokumentiert ist.
-- Plugin-Hooks laufen in Claude Desktop: In der Desktop-Session, in der dieser Plan entstand, feuern `SessionStart`-Hooks anderer Plugins nachweislich. Offen ist nur, ob `PermissionRequest` den Desktop-Dialog ersetzt und ob `type: "http"` in Plugin-Hooks unterstützt wird (Package 0).
+- Plugin-Hooks laufen in Claude Desktop: In der Desktop-Session, in der dieser Plan entstand, feuern `SessionStart`-Hooks anderer Plugins nachweislich. Laut Spike funktioniert `type: "http"` in Plugin-Hooks (außer `SessionStart`). Offen ist nur, ob `PermissionRequest` den Desktop-Dialog ersetzt (manuell in Package 7 AC8).
 - Geparkt und nicht Teil dieses Plans: Slash-Commands im Claude-Code-Plugin (z. B. `/claudedeck status`), Plan Usage Key, macOS und Cross-Platform, Fokus auf einzelne Tabs in Windows Terminal, Veröffentlichung im Elgato Marketplace und auf GitHub, README und OpenSource-Packaging.
 - Die Ruflo-Dateien im Projekt-Root (`.claude-flow/`, `.swarm/`, `ruvector.db`) gehören nicht zu ClaudeDeck und kommen in die `.gitignore`.
 
@@ -89,7 +89,7 @@ Die Doku bestätigt `PermissionRequest`, `Notification`, `Stop`, `SessionStart`,
 - [ ] AC6: Das Dokument nennt, ob `session_id`, `cwd` und `transcript_path` in Desktop-Sessions gesetzt sind und ob der Transkript-Pfad nach `~/.claude/projects/` zeigt.
 - [ ] AC7: Das Dokument nennt den Prozessnamen und den Fenstertitel von Claude Desktop, das Format des Fenstertitels im Terminal bei einer CLI-Session, und woran sich Desktop- und CLI-Sessions im Payload unterscheiden lassen (Input für Package 9).
 - [ ] AC8: `docs/spike-results.md` endet mit einer Go/No-Go-Entscheidung für Freigaben in Desktop. Bei No-Go nennt sie die Konsequenz: Allow, Always und Deny nur für das CLI, in Desktop nur Status.
-- [ ] AC9: Nach dem Spike ist das Spike-Plugin per `/plugin uninstall claudedeck-spike` entfernt und der Spike-Marketplace per `/plugin marketplace remove claudedeck-spike` abgemeldet. `~/.claude/settings.json` wurde zu keinem Zeitpunkt von Hand geändert.
+- [ ] AC9: Nach dem Spike ist das Spike-Plugin per `/plugin uninstall claudedeck-spike` entfernt und der Spike-Marketplace per `/plugin marketplace remove claudedeck-spike` abgemeldet. `~/.claude/settings.json` wurde zu keinem Zeitpunkt von Hand geändert. (Umsetzung: Plugin nur per `--plugin-dir` geladen, Abweichung dokumentiert in `docs/spike-results.md`.)
 
 ### Tests (TDD)
 
@@ -196,7 +196,7 @@ Mapping (endgültig anhand der Spike-Payloads):
 
 | Event | Neuer Zustand |
 |-------|---------------|
-| `SessionStart` | `idle` (Slot zuweisen) |
+| erstes Event einer unbekannten Session (es gibt keinen `SessionStart`, HTTP-Hooks werden dafür nicht unterstützt, siehe Spike) | Session anlegen, Slot zuweisen, dann wie das Event selbst |
 | `UserPromptSubmit`, `PreToolUse` (außer `AskUserQuestion`), `PostToolUse` | `working` |
 | `PreToolUse` mit `tool_name == "AskUserQuestion"`, `Notification` vom Typ `elicitation_dialog` oder `agent_needs_input` | `input` |
 | `PermissionRequest` | `approval` |
@@ -208,7 +208,7 @@ Mapping (endgültig anhand der Spike-Payloads):
 ### Acceptance Criteria
 
 - [ ] AC1: Jede Zeile der Mapping-Tabelle führt vom vorherigen Zustand zum angegebenen neuen Zustand.
-- [ ] AC2: Sessions bekommen Slots `0..n` in der Reihenfolge ihres `SessionStart`. Ein durch `SessionEnd` frei gewordener Slot wird von der nächsten neuen Session belegt.
+- [ ] AC2: Sessions bekommen Slots `0..n` in der Reihenfolge ihres ersten Events. Ein durch `SessionEnd` frei gewordener Slot wird von der nächsten neuen Session belegt.
 - [ ] AC3: Eine Session mit einem `cwd`, der an einen Slot gepinnt ist, landet immer in diesem Slot. Andere Sessions überspringen gepinnte Slots.
 - [ ] AC4: Ein Event für eine unbekannte `session_id` (z. B. weil das Plugin nach dem Session-Start gestartet wurde) legt die Session implizit an, statt das Event zu verwerfen.
 - [ ] AC5: `done` wird nach genau 10 min ohne weiteres Event zu `idle`, bei 9:59 min nicht.
@@ -332,10 +332,10 @@ Der Server läuft im Plugin-Prozess und lauscht nur auf `127.0.0.1`. Jeder Event
 - [ ] AC1: Der Server bindet ausschließlich an `127.0.0.1:37419` (fester Port, siehe Annahmen).
 - [ ] AC2: Requests auf andere Pfade als `POST /hook/<Event>` oder mit ungültigem JSON-Body werden mit `404` bzw. `400` beantwortet und nicht an den Store weitergegeben. Bodies über 1 MiB werden mit `413` abgelehnt.
 - [ ] AC2b: Requests mit `Origin`-Header oder mit einem anderen `Content-Type` als `application/json` werden mit `403` bzw. `415` abgelehnt und nicht an den Store weitergegeben. `OPTIONS`-Preflights bekommen `405` ohne CORS-Header.
-- [ ] AC3: Nicht-blockierende Events (`SessionStart`, `PreToolUse`, ...) werden sofort mit `200` und dem JSON-Body `{}` beantwortet und an den Store weitergegeben.
+- [ ] AC3: Nicht-blockierende Events (`UserPromptSubmit`, `PreToolUse`, ...) werden sofort mit `200` und dem JSON-Body `{}` beantwortet und an den Store weitergegeben.
 - [ ] AC4: Ein `PermissionRequest` landet in der Warteschlange. Die Antwort kommt erst nach `approve()`, `approveAlways()`, `deny()` oder Timeout.
 - [ ] AC5: `approve()` beantwortet die älteste offene Anfrage mit `decision.behavior = "allow"`, `deny()` mit `"deny"` und der `message` "Denied via ClaudeDeck".
-- [ ] AC6: `approveAlways()` beantwortet mit `allow` und `updatedPermissions`, die eine Regel mit `"destination": "session"` enthalten. Grundlage sind die `permission_suggestions` aus dem Request, falls vorhanden, sonst eine Regel für `tool_name`.
+- [ ] AC6: `approveAlways()` beantwortet mit `allow` und `updatedPermissions` mit `"destination": "session"`. Übernommen werden nur Vorschläge vom Typ `addRules` und `addDirectories` aus `permission_suggestions`, **nie `setMode`** (siehe Spike). Ist danach nichts übrig, wird eine Regel `{ "type": "addRules", "rules": [{ "toolName": <tool_name> }], "behavior": "allow", "destination": "session" }` erzeugt.
 - [ ] AC7: Nach 60 s ohne Entscheidung antwortet der Server mit `{}` (keine Entscheidung), damit Claude die normale Abfrage zeigt, und entfernt die Anfrage aus der Warteschlange.
 - [ ] AC8: Schließt der Client die Verbindung vorher, wird die Anfrage aus der Warteschlange entfernt und der Store bekommt "Freigabe entschieden".
 - [ ] AC9: Ist der Port belegt, loggt das Plugin einen Fehler und läuft weiter (Keys zeigen "offline"), statt abzustürzen.
@@ -388,7 +388,6 @@ Testbefehl: `npm test`
 - `.claude-plugin/marketplace.json` (neu, Repo-Root)
 - `claude-plugin/.claude-plugin/plugin.json` (neu)
 - `claude-plugin/hooks/hooks.json` (neu)
-- `claude-plugin/hooks/forward.mjs` (neu, nur falls Package 0 AC0 ergibt, dass `type: "http"` in Plugin-Hooks nicht funktioniert)
 - `src/server/hook-contract.ts` (neu, gemeinsame Konstante für Port und URL)
 - `test/claude-plugin.test.ts` (neu)
 
@@ -410,12 +409,12 @@ Erwartete Form eines Eintrags in `hooks.json` (endgültig laut Spike):
 
 ### Acceptance Criteria
 
-- [ ] AC1: `hooks.json` enthält genau einen Eintrag pro Event aus `docs/spike-results.md` (`SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `Notification`, `Stop`).
+- [ ] AC1: `hooks.json` enthält genau einen Eintrag pro Event aus `docs/spike-results.md` (`SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `Notification`, `Stop`).
 - [ ] AC2: Jede URL hat die Form `http://127.0.0.1:37419/hook/<Event>`, wobei `<Event>` genau dem Schlüssel des Eintrags entspricht.
 - [ ] AC3: `PermissionRequest` hat `"timeout": 65` (5 s Puffer über den 60 s des Servers), alle anderen Events `"timeout": 5`.
 - [ ] AC4: `plugin.json` hat `name: "claudedeck"`, eine Versionsnummer und eine Beschreibung. `marketplace.json` im Repo-Root listet das Plugin mit `source: "./claude-plugin"`.
 - [ ] AC5: Port und URL-Präfix stehen in genau einer Konstante im Stream-Deck-Code (`src/server/hook-contract.ts`). Ein Test stellt sicher, dass `hooks.json` dieselben Werte verwendet, damit beide Seiten nicht auseinanderlaufen.
-- [ ] AC6: Falls Package 0 einen Command-Hook als Ersatz verlangt: `forward.mjs` liest stdin, postet es an die URL aus AC2, gibt die Antwort unverändert auf stdout aus und beendet sich mit Exit-Code 0 ohne Ausgabe, wenn der Server nicht erreichbar ist (damit Claude die normale Abfrage zeigt).
+- [ ] AC6: entfällt laut Spike AC0 (HTTP-Hooks funktionieren in Plugins, kein `forward.mjs` nötig).
 - [ ] AC7: Manueller Check: `/plugin marketplace add F:\Code\ClaudeDeck` und `/plugin install claudedeck@claudedeck` in Desktop, dann Neustart. Events kommen beim laufenden Stream-Deck-Plugin an. Nach `/plugin disable claudedeck` kommen keine Events mehr, und Freigaben laufen wieder normal über Desktop.
 
 ### Tests (TDD)
@@ -429,7 +428,6 @@ Erwartete Form eines Eintrags in `hooks.json` (endgültig laut Spike):
 3. `> "timeouts are 65s for PermissionRequest and 5s otherwise"` - AC3
 4. `> "plugin and marketplace manifests are consistent"` - AC4
    - Erwartet: `marketplace.plugins[0].name === plugin.name === "claudedeck"`, `source === "./claude-plugin"`.
-5. Nur falls AC6 nötig: `> "forward script exits silently when server is down"` (Script per `child_process.spawn` gegen einen nicht belegten Port starten, stdout leer, Exit-Code 0) - AC6
 
 Testbefehl: `npm test`
 
@@ -438,8 +436,7 @@ Testbefehl: `npm test`
 1. `src/server/hook-contract.ts` mit `HOOK_PORT = 37419` und `HOOK_BASE_URL` anlegen. Package 4 nutzt diese Konstante (ist Package 4 schon fertig, dort den Literalwert ersetzen).
 2. Tests 1 bis 4 schreiben, rot sehen.
 3. `plugin.json`, `hooks.json` und `marketplace.json` anlegen, Tests grün.
-4. Falls nötig: Test 5, `forward.mjs` implementieren, `hooks.json` auf `type: "command"` umstellen.
-5. Manueller Check AC7.
+4. Manueller Check AC7.
 
 ### Out of Scope
 
@@ -631,12 +628,12 @@ Testbefehl: `npm test`
 
 ### Kontext
 
-Zwei Teile: (1) **Welches Fenster?** Eine reine Funktion wählt aus einer Fensterliste (`{ hwnd, processName, title }`) das passende. Für Desktop-Sessions ist das das Hauptfenster des Claude-Desktop-Prozesses (Name aus Spike AC7). Für CLI-Sessions ist es das Terminal-Fenster, dessen Titel den Projektnamen enthält. Woran man Desktop- und CLI-Sessions unterscheidet, legt der Spike fest (AC7). (2) **Fokus setzen:** Windows blockiert `SetForegroundWindow` aus Hintergrundprozessen oft (Foreground Lock). Workaround: vorher einen Alt-Tastendruck per `keybd_event` simulieren, dann `ShowWindow(SW_RESTORE)` und `SetForegroundWindow`. Umsetzung über ein PowerShell-Skript mit `Add-Type` und `user32.dll`, damit keine native Node-Abhängigkeit nötig ist. Der Start von PowerShell kostet etwa 300 ms. Das ist für einen Tastendruck akzeptabel und wird im Code mit einem `ponytail:`-Kommentar markiert (Upgrade-Pfad: `koffi` als FFI).
+Zwei Teile: (1) **Welches Fenster?** Eine reine Funktion wählt aus einer Fensterliste (`{ hwnd, processName, title, path }`) das passende. Der Payload unterscheidet Desktop und CLI nicht (Spike AC7). Heuristik: zuerst ein Terminal-Fenster, dessen Titel den Projektnamen enthält, sonst das Claude-Desktop-Fenster (Prozess `claude`, Pfad enthält `WindowsApps\Claude_`). (2) **Fokus setzen:** Windows blockiert `SetForegroundWindow` aus Hintergrundprozessen oft (Foreground Lock). Workaround: vorher einen Alt-Tastendruck per `keybd_event` simulieren, dann `ShowWindow(SW_RESTORE)` und `SetForegroundWindow`. Umsetzung über ein PowerShell-Skript mit `Add-Type` und `user32.dll`, damit keine native Node-Abhängigkeit nötig ist. Der Start von PowerShell kostet etwa 300 ms. Das ist für einen Tastendruck akzeptabel und wird im Code mit einem `ponytail:`-Kommentar markiert (Upgrade-Pfad: `koffi` als FFI).
 
 ### Acceptance Criteria
 
-- [ ] AC1: `matchWindow(session, windows)` liefert für eine Desktop-Session das Fenster des Claude-Desktop-Prozesses.
-- [ ] AC2: Für eine CLI-Session liefert sie das erste Terminal-Fenster (`WindowsTerminal`, `pwsh`, `powershell`, `cmd`), dessen Titel den Projektnamen enthält, ohne Rücksicht auf Groß- und Kleinschreibung.
+- [ ] AC1: `matchWindow(project, windows)` liefert das Claude-Desktop-Fenster, wenn kein passendes Terminal-Fenster existiert.
+- [ ] AC2: Vorrang hat das erste Terminal-Fenster (`WindowsTerminal`, `pwsh`, `powershell`, `cmd`), dessen Titel den Projektnamen enthält, ohne Rücksicht auf Groß- und Kleinschreibung.
 - [ ] AC3: Gibt es kein passendes Fenster, liefert sie `null`, und der Key zeigt `showAlert()`.
 - [ ] AC4: `focusWindow(hwnd)` übergibt das Handle als Zahl in einem Argument-Array an `execFile`, nie als zusammengesetzten Shell-String (keine Injektion über Fenstertitel).
 - [ ] AC5: Druck auf einen Status-Key fokussiert das Fenster und setzt bei `done` zusätzlich `idle` (Package 8 AC8 bleibt erfüllt).
@@ -644,8 +641,8 @@ Zwei Teile: (1) **Welches Fenster?** Eine reine Funktion wählt aus einer Fenste
 
 ### Tests (TDD)
 
-1. `window-match.test.ts > "desktop session matches Claude window"` - AC1
-2. `> "cli session matches terminal by project name"` - AC2
+1. `window-match.test.ts > "falls back to Claude Desktop window"` - AC1
+2. `> "prefers terminal window with project name"` - AC2
 3. `> "returns null when nothing matches"` - AC3
 4. `focus-window.test.ts > "passes hwnd as integer argument"` - AC4 (Spy auf `execFile`, prüft das Argument-Array)
 5. `status-action.test.ts > "press focuses window and clears done"` - AC5 (Fokus-Funktion als Fake injiziert)
