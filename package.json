@@ -8,6 +8,9 @@
     "build": "rollup -c",
     "watch": "rollup -c -w --watch.onEnd=\"npm run reload\"",
     "test": "vitest run",
+    "test:module": "node scripts/test-module.mjs",
+    "module:install": "tsx src/installer/cli.ts install",
+    "module:remove": "tsx src/installer/cli.ts remove",
     "link": "streamdeck link com.claudedeck.streamdeck.sdPlugin",
     "reload": "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*com.claudedeck.streamdeck.sdPlugin*plugin.js*' } | ForEach-Object { Stop-Process -Id $_.ProcessId }\""
   },
@@ -24,6 +27,7 @@
     "@types/node": "^24.19.1",
     "rollup": "^4.64.2",
     "tslib": "^2.8.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.3"
   }

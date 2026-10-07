@@ -12,6 +12,7 @@ coverage/
 .swarm/
 ruvector.db
 .claude/settings.local.json
+claude-module/.claudedeck-enabled-function-hooks
 
 # OS / editor
 Thumbs.db
