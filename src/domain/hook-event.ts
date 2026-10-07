@@ -12,4 +12,6 @@ export interface HookEvent {
 	tool_name?: string;
 	/** Notification only. Not seen in the spike, read defensively. */
 	notification_type?: string;
+	/** Stop only: background agents/tasks still running when the main agent's turn ended. */
+	background_tasks?: unknown[];
 }

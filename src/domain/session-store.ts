@@ -46,7 +46,8 @@ function stateFor(event: HookEvent): SessionState | undefined {
 		case "PermissionRequest":
 			return "working"; // shown as "approval" via pendingApprovals until decided
 		case "Stop":
-			return "done";
+			// The main agent's turn ended, but background agents it started are still running.
+			return Array.isArray(event.background_tasks) && event.background_tasks.length > 0 ? "working" : "done";
 	}
 }
 

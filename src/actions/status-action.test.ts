@@ -107,6 +107,17 @@ describe("StatusKeys", () => {
 		await vi.waitFor(() => expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "done", 42)));
 	});
 
+	it("reads context on Stop with background tasks", async () => {
+		const readContext = vi.fn(async () => 33 as number | null);
+		const { keys, send } = setup(readContext);
+		const k0 = view("k0");
+		keys.appear(k0, { column: 0, row: 0 }, {});
+		send(event("UserPromptSubmit", "a"));
+		send(event("Stop", "a", { background_tasks: [{ id: "agent-1" }] }));
+		expect(readContext).toHaveBeenCalledTimes(2);
+		await vi.waitFor(() => expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "working", 33)));
+	});
+
 	it("always reads context on Stop, even inside the throttle window", () => {
 		const readContext = vi.fn(async () => 42 as number | null);
 		const { keys, send, advance } = setup(readContext);

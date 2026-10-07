@@ -78,6 +78,26 @@ describe("SessionStore", () => {
 		expect(store.get("s1")?.state).toBe("working");
 	});
 
+	it("Stop with running background tasks keeps working", () => {
+		let now = 0;
+		const store = new SessionStore(() => now);
+		store.handle(event("UserPromptSubmit"));
+		store.handle(event("Stop", { background_tasks: [{ id: "agent-1" }] }));
+		expect(store.get("s1")?.state).toBe("working");
+		now += 11 * 60 * 1000;
+		store.tick();
+		expect(store.get("s1")?.state).toBe("working");
+	});
+
+	it("Stop without background tasks is done", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(event("Stop", { background_tasks: [] }));
+		expect(store.get("s1")?.state).toBe("done");
+		store.handle(event("UserPromptSubmit"));
+		store.handle(event("Stop"));
+		expect(store.get("s1")?.state).toBe("done");
+	});
+
 	it("maps key pressed from done to idle", () => {
 		const store = new SessionStore(() => 0);
 		store.handle(enter.done);

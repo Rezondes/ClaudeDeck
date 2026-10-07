@@ -1128,6 +1128,8 @@ Gemeldet vom Nutzer: Übergibt die Session eine Aufgabe an einen Hintergrund-Age
 - [ ] AC3: Eine `working`-Session wird vom 10-Minuten-Timer nicht zu `idle` (bestehendes Verhalten bleibt korrekt).
 - [ ] AC4: Kontext wird bei jedem `Stop` gelesen, auch mit laufenden Hintergrund-Agenten.
 
+Offener Punkt aus dem Review: Der Spike hat bisher nur `"background_tasks":[]` gesehen. Falls die Liste auch langlebige Hintergrund-Shells (Dev-Server, Watcher) enthält, bleibt der Key dauerhaft auf Working. Einen echten nicht leeren Payload erfassen und bei Bedarf nur Agent-Tasks zählen.
+
 ### Tests (TDD)
 
 1. `session-store.test.ts > "Stop with running background tasks keeps working"` - AC1, AC3
