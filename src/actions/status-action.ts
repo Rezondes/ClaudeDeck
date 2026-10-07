@@ -1,5 +1,9 @@
+import os from "node:os";
+import path from "node:path";
+
+import type { DesktopSession } from "../desktop/session-catalog.js";
 import type { HookEvent } from "../domain/hook-event.js";
-import type { Session, SessionStore } from "../domain/session-store.js";
+import { normalizeCwd, type Session, type SessionStore } from "../domain/session-store.js";
 import { renderEmptyStatusKey, renderStatusKey, toDataUrl } from "../render/status-key.js";
 import type { KeyView } from "./key-view.js";
 import { SlotRegistry, type Coordinates } from "./slot-registry.js";
@@ -15,6 +19,21 @@ export type ReadContext = (transcriptPath: string) => Promise<number | null>;
 const FLASH_MS = 500;
 const CONTEXT_THROTTLE_MS = 2000;
 const CONTEXT_EVENTS = new Set(["UserPromptSubmit", "PostToolUse", "Stop"]);
+const SEED_INTERVAL_MS = 60_000;
+const SEED_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/** Claude Code transcript of a session: every non-alphanumeric character of cwd becomes "-". */
+export function transcriptPathFor(cwd: string, cliSessionId: string, home = os.homedir()): string {
+	return path.join(home, ".claude", "projects", cwd.replace(/[^A-Za-z0-9]/g, "-"), `${cliSessionId}.jsonl`);
+}
+
+/** Non-archived sessions active in the last 12 h, plus the newest non-archived session of each pinned folder. */
+function sessionsToSeed(catalog: DesktopSession[], pinnedFolders: string[], now: number): DesktopSession[] {
+	const live = catalog.filter((s) => !s.archived).sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+	const newestPinned = pinnedFolders.map((folder) => live.find((s) => normalizeCwd(s.cwd) === normalizeCwd(folder)));
+	const recent = live.filter((s) => now - s.lastActivityAt <= SEED_MAX_AGE_MS);
+	return [...new Set([...recent, ...newestPinned])].filter((s): s is DesktopSession => s !== undefined);
+}
 
 /** Claude Status keys: one session per key, ordered by key position. */
 export class StatusKeys {
@@ -34,8 +53,11 @@ export class StatusKeys {
 		private readonly now: () => number = Date.now,
 		/** Brings the session's window forward; resolves false when no window matched. */
 		private readonly focusProject: (project: string) => Promise<boolean> = async () => false,
+		/** Desktop session catalog, used to fill keys before a session sends its first hook event. */
+		private readonly listDesktopSessions: () => Promise<DesktopSession[]> = async () => [],
 	) {
 		store.onChange((sessionId) => this.#sessionChanged(sessionId));
+		setInterval(() => void this.seed(), SEED_INTERVAL_MS);
 	}
 
 	appear(view: KeyView, coordinates: Coordinates | undefined, settings: StatusSettings): void {
@@ -44,6 +66,29 @@ export class StatusKeys {
 		this.#setPin(view.id, settings);
 		this.#applyPins();
 		this.renderAll();
+		void this.seed();
+	}
+
+	/** Shows recent and pinned Desktop sessions as idle and reads their context once. A failing catalog changes nothing. */
+	async seed(): Promise<void> {
+		let catalog: DesktopSession[];
+		try {
+			catalog = await this.listDesktopSessions();
+		} catch {
+			return;
+		}
+		const selected = sessionsToSeed(catalog, [...this.#pins.values()], this.now());
+		// Idle catalog sessions that left the selection (aged out, archived, unpinned) free their slot; CLI sessions are not in the catalog.
+		const keep = new Set(selected.map((s) => s.cliSessionId));
+		const inCatalog = new Set(catalog.map((s) => s.cliSessionId));
+		for (const session of this.store.sessions()) {
+			if (session.state === "idle" && inCatalog.has(session.id) && !keep.has(session.id)) this.store.remove(session.id);
+		}
+		const entries = selected
+			.filter((s) => !this.store.get(s.cliSessionId))
+			.map((s) => ({ sessionId: s.cliSessionId, cwd: s.cwd, transcriptPath: transcriptPathFor(s.cwd, s.cliSessionId), lastActivityAt: s.lastActivityAt }));
+		this.store.seed(entries);
+		for (const entry of entries) this.#readContext(entry.sessionId, entry.transcriptPath);
 	}
 
 	disappear(id: string): void {
@@ -59,6 +104,7 @@ export class StatusKeys {
 		this.#setPin(id, settings);
 		this.#applyPins();
 		this.renderAll();
+		void this.seed();
 	}
 
 	/** The session shown on this key, if any. */
@@ -84,17 +130,21 @@ export class StatusKeys {
 		// Stop always reads: it is the last event of a turn, a throttled skip would leave a stale value for hours.
 		const last = this.#lastRead.get(event.session_id);
 		if (event.hook_event_name !== "Stop" && last !== undefined && this.now() - last < CONTEXT_THROTTLE_MS) return;
-		this.#lastRead.set(event.session_id, this.now());
-		this.readContext(event.transcript_path).then((percent) => {
-			if (percent === null || !this.store.get(event.session_id)) return;
-			this.#context.set(event.session_id, percent);
-			const session = this.store.get(event.session_id);
-			if (session) this.#renderSlot(session.slot);
-		});
+		this.#readContext(event.session_id, event.transcript_path);
 	}
 
 	renderAll(): void {
 		for (const id of this.#views.keys()) this.#render(id);
+	}
+
+	#readContext(sessionId: string, transcriptPath: string): void {
+		this.#lastRead.set(sessionId, this.now());
+		this.readContext(transcriptPath).then((percent) => {
+			const session = this.store.get(sessionId);
+			if (percent === null || !session) return;
+			this.#context.set(sessionId, percent);
+			this.#renderSlot(session.slot);
+		});
 	}
 
 	#setPin(id: string, settings: StatusSettings): void {

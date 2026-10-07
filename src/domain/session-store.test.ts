@@ -216,4 +216,33 @@ describe("SessionStore", () => {
 		store.handle(event("SessionEnd"));
 		expect(changed).toHaveLength(6);
 	});
+
+	it("remove deletes a session and notifies once", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(enter.done);
+		const changed: string[] = [];
+		store.onChange((id) => changed.push(id));
+		store.remove("s1");
+		store.remove("s1");
+		expect(store.get("s1")).toBeUndefined();
+		expect(changed).toEqual(["s1"]);
+	});
+
+	it("seed creates idle sessions newest first and keeps known ones", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(enter.done);
+		const changed: string[] = [];
+		store.onChange((id) => changed.push(id));
+		const entry = (sessionId: string, lastActivityAt: number) => ({ sessionId, cwd: `F:\\Code\\${sessionId}`, transcriptPath: `${sessionId}.jsonl`, lastActivityAt });
+		store.seed([entry("old", 100), entry("s1", 300), entry("new", 200)]);
+		expect(store.get("new")).toMatchObject({ slot: 1, state: "idle", baseState: "idle", projectName: "new", transcriptPath: "new.jsonl", lastEventAt: 200 });
+		expect(store.get("old")).toMatchObject({ slot: 2, state: "idle" });
+		expect(store.get("s1")).toMatchObject({ slot: 0, state: "done", cwd: "F:\\Code\\ClaudeDeck" });
+		expect(changed).toEqual(["new", "old"]);
+
+		// A later hook event of a seeded session updates that same session.
+		store.handle(event("UserPromptSubmit", { session_id: "new", cwd: "F:\\Code\\new" }));
+		expect(store.sessions()).toHaveLength(3);
+		expect(store.get("new")).toMatchObject({ slot: 1, state: "working" });
+	});
 });

@@ -1,9 +1,11 @@
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { DesktopSession } from "../desktop/session-catalog.js";
 import type { HookEvent } from "../domain/hook-event.js";
 import { SessionStore } from "../domain/session-store.js";
 import { renderEmptyStatusKey, renderStatusKey, toDataUrl } from "../render/status-key.js";
-import { StatusKeys } from "./status-action.js";
+import { StatusKeys, transcriptPathFor } from "./status-action.js";
 
 function event(name: HookEvent["hook_event_name"], sessionId: string, extra: Partial<HookEvent> = {}): HookEvent {
 	return { hook_event_name: name, session_id: sessionId, transcript_path: `${sessionId}.jsonl`, cwd: `F:\\Code\\${sessionId}`, ...extra };
@@ -208,5 +210,103 @@ describe("StatusKeys", () => {
 		const k0 = view("k0");
 		keys.appear(k0, { column: 0, row: 0 }, {});
 		expect(() => keys.press(k0)).not.toThrow();
+	});
+
+	describe("seeding from the Desktop catalog", () => {
+		const HOUR = 60 * 60 * 1000;
+		const NOW = 100 * HOUR;
+		const desktop = (cliSessionId: string, cwd: string, hoursAgo: number, archived = false): DesktopSession => ({
+			localId: `local_${cliSessionId}`,
+			cliSessionId,
+			cwd,
+			title: "",
+			lastActivityAt: NOW - hoursAgo * HOUR,
+			archived,
+		});
+
+		function seedSetup(catalog: () => Promise<DesktopSession[]>, readContext = vi.fn(async () => null as number | null)) {
+			const store = new SessionStore(() => NOW);
+			const listDesktopSessions = vi.fn(catalog);
+			const keys = new StatusKeys(store, readContext, () => NOW, async () => false, listDesktopSessions);
+			return { store, keys, listDesktopSessions, readContext };
+		}
+
+		it("seeds recent and pinned sessions", async () => {
+			const { store, keys } = seedSetup(async () => [
+				desktop("recent", "F:\\Code\\web", 1),
+				desktop("stale", "F:\\Code\\web", 13),
+				desktop("archived", "F:\\Code\\web", 0, true),
+				desktop("pinned-new", "f:/code/api/", 48),
+				desktop("pinned-old", "F:\\Code\\api", 72),
+				desktop("pinned-archived", "F:\\Code\\api", 24, true),
+			]);
+			keys.appear(view("k0"), { column: 0, row: 0 }, { project: "F:\\Code\\api" });
+			await keys.seed();
+			expect(store.sessions().map((s) => s.id).sort()).toEqual(["pinned-new", "recent"]);
+			expect(store.get("pinned-new")).toMatchObject({ slot: 0, state: "idle" });
+		});
+
+		it("derives transcript path from cwd and cli session id", () => {
+			const projects = path.join("C:\\Users\\Steven Richter", ".claude", "projects");
+			expect(transcriptPathFor("F:\\Code\\ClaudeDeck", "abc", "C:\\Users\\Steven Richter")).toBe(path.join(projects, "F--Code-ClaudeDeck", "abc.jsonl"));
+			expect(transcriptPathFor("C:\\Users\\Steven Richter\\AppData\\Local\\Temp\\cdspike", "abc", "C:\\Users\\Steven Richter")).toBe(
+				path.join(projects, "C--Users-Steven-Richter-AppData-Local-Temp-cdspike", "abc.jsonl"),
+			);
+		});
+
+		it("reads context for seeded sessions", async () => {
+			const readContext = vi.fn(async () => 55 as number | null);
+			const { keys } = seedSetup(async () => [desktop("a", "F:\\Code\\web", 1)], readContext);
+			const k0 = view("k0");
+			keys.appear(k0, { column: 0, row: 0 }, {});
+			await keys.seed();
+			await keys.seed();
+			expect(readContext).toHaveBeenCalledOnce();
+			expect(readContext).toHaveBeenCalledWith(transcriptPathFor("F:\\Code\\web", "a"));
+			await vi.waitFor(() => expect(k0.setImage).toHaveBeenLastCalledWith(status("web", "idle", 55)));
+		});
+
+		it("reseeds on appear, settings change and every 60s", async () => {
+			const { keys, listDesktopSessions } = seedSetup(async () => []);
+			keys.appear(view("k0"), { column: 0, row: 0 }, {});
+			expect(listDesktopSessions).toHaveBeenCalledTimes(1);
+			keys.settingsChanged("k0", { project: "F:\\Code\\api" });
+			expect(listDesktopSessions).toHaveBeenCalledTimes(2);
+			vi.advanceTimersByTime(59_999);
+			expect(listDesktopSessions).toHaveBeenCalledTimes(2);
+			vi.advanceTimersByTime(1);
+			expect(listDesktopSessions).toHaveBeenCalledTimes(3);
+		});
+
+		it("drops idle catalog sessions that left the selection", async () => {
+			let catalog = ["archived", "aged", "working", "done", "approval"].map((id) => desktop(id, `F:\\Code\\${id}`, 1));
+			const { store, keys } = seedSetup(async () => catalog);
+			const k0 = view("k0");
+			keys.appear(k0, { column: 0, row: 0 }, {});
+			await keys.seed();
+			store.handle(event("UserPromptSubmit", "working"));
+			store.handle(event("Stop", "done"));
+			store.handle(event("PermissionRequest", "approval", { tool_name: "Bash" }));
+			store.handle(event("UserPromptSubmit", "cli"));
+			store.handle(event("Stop", "cli"));
+			store.keyPressed("cli"); // idle, but not in the catalog
+			catalog = [desktop("archived", "F:\\Code\\archived", 1, true), ...["aged", "working", "done", "approval"].map((id) => desktop(id, `F:\\Code\\${id}`, 13))];
+			await keys.seed();
+			expect(store.sessions().map((s) => s.id).sort()).toEqual(["approval", "cli", "done", "working"]);
+			expect(k0.setImage).toHaveBeenLastCalledWith(toDataUrl(renderEmptyStatusKey()));
+		});
+
+		it("catalog failure keeps keys unchanged", async () => {
+			const { store, keys } = seedSetup(async () => {
+				throw new Error("EACCES");
+			});
+			const k0 = view("k0");
+			keys.appear(k0, { column: 0, row: 0 }, {});
+			store.handle(event("UserPromptSubmit", "a"));
+			k0.setImage.mockClear();
+			await expect(keys.seed()).resolves.toBeUndefined();
+			expect(k0.setImage).not.toHaveBeenCalled();
+			expect(store.get("a")?.state).toBe("working");
+		});
 	});
 });

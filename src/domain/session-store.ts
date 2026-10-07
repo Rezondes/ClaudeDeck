@@ -22,6 +22,9 @@ export interface Session {
 	lastEventAt: number;
 }
 
+/** A session known before its first hook event. */
+export type SeedEntry = { sessionId: string; cwd: string; transcriptPath: string; lastActivityAt: number };
+
 const DONE_TIMEOUT_MS = 10 * 60 * 1000;
 const INPUT_NOTIFICATIONS = ["elicitation_dialog", "agent_needs_input"];
 
@@ -43,7 +46,7 @@ function stateFor(event: HookEvent): SessionState | undefined {
 }
 
 /** Windows paths: case-insensitive, trailing separators do not matter. */
-function normalizeCwd(cwd: string): string {
+export function normalizeCwd(cwd: string): string {
 	return cwd.replaceAll("/", "\\").replace(/\\+$/, "").toLowerCase();
 }
 
@@ -75,27 +78,12 @@ export class SessionStore {
 
 	handle(event: HookEvent): void {
 		if (event.hook_event_name === "SessionEnd") {
-			if (this.#sessions.delete(event.session_id)) {
-				this.#notify(event.session_id);
-			}
+			this.remove(event.session_id);
 			return;
 		}
 		let session = this.#sessions.get(event.session_id);
 		const before = session && { state: session.state, permissionMode: session.permissionMode };
-		if (!session) {
-			session = {
-				id: event.session_id,
-				slot: this.#freeSlot(event.cwd),
-				state: "idle",
-				baseState: "idle",
-				pendingApprovals: 0,
-				cwd: event.cwd,
-				projectName: projectNameOf(event.cwd),
-				transcriptPath: event.transcript_path,
-				lastEventAt: 0,
-			};
-			this.#sessions.set(session.id, session);
-		}
+		session ??= this.#create({ sessionId: event.session_id, cwd: event.cwd, transcriptPath: event.transcript_path, lastActivityAt: 0 });
 		if (event.hook_event_name === "PermissionRequest") {
 			session.pendingApprovals++;
 		}
@@ -154,6 +142,37 @@ export class SessionStore {
 
 	sessions(): Session[] {
 		return [...this.#sessions.values()];
+	}
+
+	/** Deletes a session; its slot is free for the next new session. Other sessions keep their slots. */
+	remove(sessionId: string): void {
+		if (this.#sessions.delete(sessionId)) {
+			this.#notify(sessionId);
+		}
+	}
+
+	/** Creates idle sessions known from outside (Desktop catalog) before their first hook event. Known sessions stay untouched. */
+	seed(entries: SeedEntry[]): void {
+		for (const entry of [...entries].sort((a, b) => b.lastActivityAt - a.lastActivityAt)) {
+			if (this.#sessions.has(entry.sessionId)) continue;
+			this.#notify(this.#create(entry).id);
+		}
+	}
+
+	#create(entry: SeedEntry): Session {
+		const session: Session = {
+			id: entry.sessionId,
+			slot: this.#freeSlot(entry.cwd),
+			state: "idle",
+			baseState: "idle",
+			pendingApprovals: 0,
+			cwd: entry.cwd,
+			projectName: projectNameOf(entry.cwd),
+			transcriptPath: entry.transcriptPath,
+			lastEventAt: entry.lastActivityAt,
+		};
+		this.#sessions.set(session.id, session);
+		return session;
 	}
 
 	/** The pinned slot for this cwd if it is free, else the lowest slot that is neither taken nor pinned. */
