@@ -22,9 +22,12 @@ function handle(hwnd: number): string {
 	return String(hwnd);
 }
 
+/** powershell arguments that run the helper script with the given switches. */
+export const scriptArgs = (scriptPath: string, ...args: string[]) => ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath, ...args];
+
 // ponytail: one PowerShell start per call (~0.5 s); a native FFI binding (koffi) if that ever feels slow.
 export function createWindowHelper(scriptPath: string, run: RunFile = runFile) {
-	const ps = (...args: string[]) => run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath, ...args]);
+	const ps = (...args: string[]) => run("powershell", scriptArgs(scriptPath, ...args));
 	return {
 		async windowState(hwnd: number): Promise<WindowState> {
 			return JSON.parse(await ps("-State", "-Hwnd", handle(hwnd)));

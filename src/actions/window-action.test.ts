@@ -1,14 +1,17 @@
+import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderWindowKey } from "../render/window-key.js";
 import { toDataUrl } from "../render/status-key.js";
 import type { WindowInfo } from "../win/window-match.js";
+import { WindowWatch } from "../win/window-watch.js";
 import { WindowKeys, type WindowControl } from "./window-action.js";
 
 const DESKTOP: WindowInfo = { hwnd: 77, processName: "claude", title: "Claude", path: "C:\\Program Files\\WindowsApps\\Claude_1.0\\app\\claude.exe" };
 const TERMINAL: WindowInfo = { hwnd: 5, processName: "WindowsTerminal", title: "claude", path: "C:\\wt.exe" };
 
-const view = () => ({ id: "k1", setImage: vi.fn(), showAlert: vi.fn() });
+const view = (id = "k1") => ({ id, setImage: vi.fn(), showAlert: vi.fn() });
+const image = (kind: Parameters<typeof renderWindowKey>[0]) => toDataUrl(renderWindowKey(kind));
 
 function fakeWindows(state: { minimized: boolean; maximized: boolean }, list: WindowInfo[] = [TERMINAL, DESKTOP]) {
 	return {
@@ -18,43 +21,72 @@ function fakeWindows(state: { minimized: boolean; maximized: boolean }, list: Wi
 	} satisfies WindowControl;
 }
 
+/** A WindowWatch whose PowerShell process is a fake; report() writes one -Watch line. */
+function fakeWatch() {
+	const stdout = new EventEmitter();
+	const watch = new WindowWatch("s.ps1", () => Object.assign(new EventEmitter(), { stdout, kill: vi.fn() }));
+	return { watch, report: (line: object) => stdout.emit("data", `${JSON.stringify(line)}\n`) };
+}
+
 describe("WindowKeys", () => {
-	it("renders its key on appear", () => {
-		const v = view();
-		new WindowKeys("maximize", fakeWindows({ minimized: false, maximized: false })).appear(v);
-		expect(v.setImage).toHaveBeenCalledWith(toDataUrl(renderWindowKey("maximize")));
+	it("press maximizes unless maximized, then minimizes", async () => {
+		for (const [state, verb] of [
+			[{ minimized: false, maximized: true }, "minimize"],
+			[{ minimized: true, maximized: false }, "maximize"],
+			[{ minimized: false, maximized: false }, "maximize"],
+		] as const) {
+			// Watched state decides, without asking PowerShell.
+			const { watch, report } = fakeWatch();
+			const watched = fakeWindows({ minimized: false, maximized: false }, []);
+			const keys = new WindowKeys(watched, watch);
+			keys.appear(view());
+			report({ hwnd: 77, ...state });
+			await keys.press(view());
+			expect(watched.setWindow).toHaveBeenCalledWith(77, verb);
+			expect(watched.list).not.toHaveBeenCalled();
+
+			// No watched state yet: one-shot lookup.
+			const oneShot = fakeWindows(state);
+			await new WindowKeys(oneShot, fakeWatch().watch).press(view());
+			expect(oneShot.windowState).toHaveBeenCalledWith(77);
+			expect(oneShot.setWindow).toHaveBeenCalledWith(77, verb);
+		}
 	});
 
-	it("window key toggles minimize and restore", async () => {
-		const normal = fakeWindows({ minimized: false, maximized: true });
-		await new WindowKeys("window", normal).press(view());
-		expect(normal.windowState).toHaveBeenCalledWith(77);
-		expect(normal.setWindow).toHaveBeenCalledWith(77, "minimize");
+	it("key shows the next action from the watched state", () => {
+		const { watch, report } = fakeWatch();
+		const keys = new WindowKeys(fakeWindows({ minimized: false, maximized: false }), watch);
+		const a = view("a");
+		const b = view("b");
+		keys.appear(a);
+		keys.appear(b);
+		expect(a.setImage).toHaveBeenLastCalledWith(image("maximize"));
 
-		const minimized = fakeWindows({ minimized: true, maximized: false });
-		await new WindowKeys("window", minimized).press(view());
-		expect(minimized.setWindow).toHaveBeenCalledWith(77, "restore");
-	});
+		report({ hwnd: 77, minimized: false, maximized: true });
+		expect(a.setImage).toHaveBeenLastCalledWith(image("minimize"));
+		expect(b.setImage).toHaveBeenLastCalledWith(image("minimize"));
 
-	it("maximize key toggles maximize and normal size", async () => {
-		const normal = fakeWindows({ minimized: false, maximized: false });
-		await new WindowKeys("maximize", normal).press(view());
-		expect(normal.setWindow).toHaveBeenCalledWith(77, "maximize");
+		keys.disappear("b");
+		report({ hwnd: 77, minimized: true, maximized: false });
+		expect(a.setImage).toHaveBeenLastCalledWith(image("maximize"));
+		expect(b.setImage).toHaveBeenLastCalledWith(image("minimize"));
 
-		const minimized = fakeWindows({ minimized: true, maximized: false });
-		await new WindowKeys("maximize", minimized).press(view());
-		expect(minimized.setWindow).toHaveBeenCalledWith(77, "maximize");
-
-		const maximized = fakeWindows({ minimized: false, maximized: true });
-		await new WindowKeys("maximize", maximized).press(view());
-		expect(maximized.setWindow).toHaveBeenCalledWith(77, "restore");
+		report({ hwnd: 0 });
+		expect(a.setImage).toHaveBeenLastCalledWith(image("none"));
 	});
 
 	it("alerts without desktop window", async () => {
 		const windows = fakeWindows({ minimized: false, maximized: false }, [TERMINAL]);
 		const v = view();
-		await new WindowKeys("window", windows).press(v);
-		expect(v.showAlert).toHaveBeenCalled();
+		await new WindowKeys(windows, fakeWatch().watch).press(v);
+		expect(v.showAlert).toHaveBeenCalledTimes(1);
+
+		const { watch, report } = fakeWatch();
+		const keys = new WindowKeys(windows, watch);
+		keys.appear(view());
+		report({ hwnd: 0 });
+		await keys.press(v);
+		expect(v.showAlert).toHaveBeenCalledTimes(2);
 		expect(windows.setWindow).not.toHaveBeenCalled();
 	});
 
@@ -62,7 +94,7 @@ describe("WindowKeys", () => {
 		const windows = fakeWindows({ minimized: false, maximized: false });
 		windows.setWindow.mockRejectedValue(new Error("powershell failed"));
 		const v = view();
-		await new WindowKeys("maximize", windows).press(v);
+		await new WindowKeys(windows, fakeWatch().watch).press(v);
 		expect(v.showAlert).toHaveBeenCalled();
 	});
 });

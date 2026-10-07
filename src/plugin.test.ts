@@ -11,16 +11,16 @@ describe("manifest", () => {
 		}
 	});
 
-	it("manifest declares window actions", () => {
-		for (const [name, label] of [["window", "Claude Window"], ["maximize", "Claude Maximize"]]) {
-			const action = manifest.Actions.find((a: { UUID: string }) => a.UUID === `com.claudedeck.streamdeck.${name}`);
-			expect(action?.Name).toBe(label);
-			expect(action?.Icon).toBe(`imgs/actions/${name}/icon`);
-			expect(action?.States[0].Image).toBe(`imgs/actions/${name}/key`);
-			for (const file of ["icon.png", "icon@2x.png", "key.png", "key@2x.png"]) {
-				expect(existsSync(new URL(`../com.claudedeck.streamdeck.sdPlugin/imgs/actions/${name}/${file}`, import.meta.url))).toBe(true);
-			}
+	it("manifest has one window action", () => {
+		const action = manifest.Actions.find((a: { UUID: string }) => a.UUID === "com.claudedeck.streamdeck.window");
+		expect(action?.Name).toBe("Claude Window");
+		expect(action?.Icon).toBe("imgs/actions/window/icon");
+		expect(action?.States[0].Image).toBe("imgs/actions/window/key");
+		for (const file of ["icon.png", "icon@2x.png", "key.png", "key@2x.png"]) {
+			expect(existsSync(new URL(`../com.claudedeck.streamdeck.sdPlugin/imgs/actions/window/${file}`, import.meta.url))).toBe(true);
 		}
+		expect(manifest.Actions.map((a: { UUID: string }) => a.UUID)).not.toContain("com.claudedeck.streamdeck.maximize");
+		expect(existsSync(new URL("../com.claudedeck.streamdeck.sdPlugin/imgs/actions/maximize", import.meta.url))).toBe(false);
 	});
 
 	it("has no interrupt action (Package 10 No-Go, docs/spike-results.md)", () => {

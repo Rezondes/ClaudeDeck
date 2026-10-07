@@ -5,7 +5,11 @@
 #   -State -Hwnd <n>                             prints {"minimized":bool,"maximized":bool}
 #   -OpenSession <local_id>                      opens claude://code/continue for that Desktop session and brings Desktop forward
 #   -OpenNeedsInput                              opens claude://code/needs-input (Sessions Waiting for You) and brings Desktop forward
+#   -Watch [-Parent <pid>]                       every second prints {"hwnd":n,"minimized":bool,"maximized":bool} for the
+#                                                Desktop window, or {"hwnd":0}; runs until killed or process <pid> exits
 param(
+	[switch]$Watch,
+	[long]$Parent = 0,
 	[switch]$List,
 	# \z, not $: .NET's $ also matches before a trailing newline. Same rule as the Desktop URL handler.
 	[ValidatePattern('^local_[A-Za-z0-9-]{1,64}\z')][string]$OpenSession,
@@ -47,6 +51,31 @@ function Set-Foreground([IntPtr]$handle) {
 	return [ClaudeDeck.User32]::SetForegroundWindow($handle)
 }
 
+function Get-DesktopWindow {
+	Get-Process -Name claude -ErrorAction SilentlyContinue |
+		Where-Object { $_.MainWindowHandle -ne 0 -and "$($_.Path)" -like "*WindowsApps\Claude_*" } | Select-Object -First 1
+}
+
+if ($Watch) {
+	# Exit with the plugin process (-Parent) even if it never kills us.
+	while ($Parent -eq 0 -or (Get-Process -Id $Parent -ErrorAction SilentlyContinue)) {
+		$desktop = Get-DesktopWindow
+		$line = '{"hwnd":0}'
+		if ($desktop) {
+			$handle = $desktop.MainWindowHandle
+			$line = ConvertTo-Json -Compress -InputObject ([ordered]@{
+				hwnd      = [long]$handle
+				minimized = [ClaudeDeck.User32]::IsIconic($handle)
+				maximized = [ClaudeDeck.User32]::IsZoomed($handle)
+			})
+		}
+		[Console]::Out.WriteLine($line)
+		[Console]::Out.Flush()
+		Start-Sleep -Milliseconds 1000
+	}
+	exit 0
+}
+
 if ($Focus -ne 0) {
 	$handle = [IntPtr]$Focus
 	if ([ClaudeDeck.User32]::IsIconic($handle)) { [void][ClaudeDeck.User32]::ShowWindow($handle, 9) } # SW_RESTORE
@@ -60,8 +89,7 @@ if ($OpenSession -or $OpenNeedsInput) {
 	else { Start-Process "claude://code/needs-input?source=claudedeck" }
 	# The URL handler may start Desktop first: wait up to ~2 s for its window.
 	for ($i = 0; $i -lt 10; $i++) {
-		$desktop = Get-Process -Name claude -ErrorAction SilentlyContinue |
-			Where-Object { $_.MainWindowHandle -ne 0 -and "$($_.Path)" -like "*WindowsApps\Claude_*" } | Select-Object -First 1
+		$desktop = Get-DesktopWindow
 		if ($desktop) { break }
 		Start-Sleep -Milliseconds 200
 	}
@@ -89,5 +117,5 @@ if ($Window -and $Hwnd -ne 0) {
 	exit 0
 }
 
-Write-Error "usage: focus-window.ps1 -List | -Focus <hwnd> | -Window minimize|maximize|restore -Hwnd <hwnd> | -State -Hwnd <hwnd> | -OpenSession <local_id> | -OpenNeedsInput"
+Write-Error "usage: focus-window.ps1 -List | -Focus <hwnd> | -Window minimize|maximize|restore -Hwnd <hwnd> | -State -Hwnd <hwnd> | -OpenSession <local_id> | -OpenNeedsInput | -Watch [-Parent <pid>]"
 exit 2

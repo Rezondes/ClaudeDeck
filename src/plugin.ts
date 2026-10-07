@@ -14,6 +14,7 @@ import { createHookServer } from "./server/hook-server.js";
 import { PendingApprovals } from "./server/pending-approvals.js";
 import { createWindowHelper } from "./win/focus-window.js";
 import { matchWindow } from "./win/window-match.js";
+import { WindowWatch } from "./win/window-watch.js";
 
 streamDeck.logger.setLevel("info");
 const log = streamDeck.logger.createScope("ClaudeDeck");
@@ -30,7 +31,8 @@ const decisionKeys = (["allow", "always", "deny"] as DecisionKind[]).map((kind) 
 	return keys;
 });
 
-const windows = createWindowHelper(fileURLToPath(new URL("../scripts/focus-window.ps1", import.meta.url)));
+const scriptPath = fileURLToPath(new URL("../scripts/focus-window.ps1", import.meta.url));
+const windows = createWindowHelper(scriptPath);
 const focusProject = async (project: string) => {
 	try {
 		const window = matchWindow(project, await windows.list());
@@ -60,10 +62,10 @@ const openNeedsInput = async () => {
 		return false;
 	}
 };
-for (const kind of ["window", "maximize"] as const) {
-	const keys = new WindowKeys(kind, windows, (message) => log.error(message));
-	streamDeck.actions.registerAction(new KeyAdapter(`com.claudedeck.streamdeck.${kind}`, keys));
-}
+const windowWatch = new WindowWatch(scriptPath, undefined, (message) => log.error(message));
+streamDeck.actions.registerAction(
+	new KeyAdapter("com.claudedeck.streamdeck.window", new WindowKeys(windows, windowWatch, (message) => log.error(message))),
+);
 
 const statusKeys = new StatusKeys(store, readContextUsage, Date.now, focusProject, () => readDesktopSessions(), openSession, openNeedsInput);
 void statusKeys.seed();

@@ -72,29 +72,13 @@
 			"Name": "Claude Window",
 			"UUID": "com.claudedeck.streamdeck.window",
 			"Icon": "imgs/actions/window/icon",
-			"Tooltip": "Minimize the Claude Desktop window, or restore and focus it when minimized.",
+			"Tooltip": "Maximize the Claude Desktop window and bring it forward, or minimize it when maximized.",
 			"Controllers": [
 				"Keypad"
 			],
 			"States": [
 				{
 					"Image": "imgs/actions/window/key",
-					"TitleAlignment": "middle"
-				}
-			],
-			"UserTitleEnabled": false
-		},
-		{
-			"Name": "Claude Maximize",
-			"UUID": "com.claudedeck.streamdeck.maximize",
-			"Icon": "imgs/actions/maximize/icon",
-			"Tooltip": "Maximize the Claude Desktop window, or restore its normal size when maximized.",
-			"Controllers": [
-				"Keypad"
-			],
-			"States": [
-				{
-					"Image": "imgs/actions/maximize/key",
 					"TitleAlignment": "middle"
 				}
 			],
