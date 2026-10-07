@@ -775,7 +775,7 @@ Testbefehl: `npm test`
 
 ### Kontext
 
-Claude Desktop legt pro Code-Session eine Datei `%APPDATA%\Claude\claude-code-sessions\<account>\<org>\local_<uuid>.json` an (gefunden beim Deep-Link-Test, nicht dokumentiert). Relevante Felder: `sessionId` (`local_<uuid>`), `cliSessionId` (= `session_id` der Hook-Payloads), `cwd`, `title`, `lastActivityAt` (ms als String), `isArchived`. Das Format ist intern und kann sich mit Updates ändern; der Katalog überspringt daher jede fehlerhafte Datei, statt abzubrechen.
+Claude Desktop legt pro Code-Session eine Datei `%APPDATA%\Claude\claude-code-sessions\<account>\<org>\local_<uuid>.json` an (gefunden beim Deep-Link-Test, nicht dokumentiert). Relevante Felder: `sessionId` (`local_<uuid>`), `cliSessionId` (= `session_id` der Hook-Payloads), `cwd`, `title`, `lastActivityAt` (ms, in echten Dateien eine Zahl), `isArchived` (Boolean). Das Format ist intern und kann sich mit Updates ändern; der Katalog überspringt daher jede fehlerhafte Datei, statt abzubrechen.
 
 ### Acceptance Criteria
 
@@ -994,3 +994,6 @@ Testbefehl: `npm test`
 ### Out of Scope
 
 - Fenstersteuerung für Terminals.
+[INFO] Recording command outcome: cat
+
+[OK] Command outcome recorded
