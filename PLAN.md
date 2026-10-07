@@ -545,7 +545,7 @@ Testbefehl: `npm test`
 
 1. `KeyView`-Schnittstelle und Fake für Tests definieren.
 2. Tests 1 bis 7 in TDD-Reihenfolge.
-3. In `src/plugin.ts` drei Actions mit `@action({ UUID })` registrieren, die dieselbe Klasse mit unterschiedlichem `kind` nutzen.
+3. In `src/plugin.ts` drei Actions registrieren, die dieselbe Klasse mit unterschiedlichem `kind` nutzen. Umgesetzt ohne Decorator: `src/actions/key-adapter.ts` (setzt `manifestId` direkt) leitet Stream-Deck-Events an testbare Controller weiter, `src/actions/key-view.ts` ist die schmale Schnittstelle dafür.
 4. `npm run build`, `npm run reload`, manueller Check AC8.
 
 ### Out of Scope
