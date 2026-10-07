@@ -83,6 +83,22 @@
 				}
 			],
 			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Plan Usage",
+			"UUID": "com.claudedeck.streamdeck.usage",
+			"Icon": "imgs/actions/usage/icon",
+			"Tooltip": "Claude plan usage of the 5 hour and 7 day limits. Press to show when they reset.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/usage/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
 		}
 	],
 	"Category": "ClaudeDeck",

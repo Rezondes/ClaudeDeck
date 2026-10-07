@@ -23,6 +23,17 @@ describe("manifest", () => {
 		expect(existsSync(new URL("../com.claudedeck.streamdeck.sdPlugin/imgs/actions/maximize", import.meta.url))).toBe(false);
 	});
 
+	it("manifest has the plan usage action", () => {
+		const action = manifest.Actions.find((a: { UUID: string }) => a.UUID === "com.claudedeck.streamdeck.usage");
+		expect(action?.Name).toBe("Plan Usage");
+		expect(action?.Controllers).toEqual(["Keypad"]);
+		expect(action?.Icon).toBe("imgs/actions/usage/icon");
+		expect(action?.States[0].Image).toBe("imgs/actions/usage/key");
+		for (const file of ["icon.png", "icon@2x.png", "key.png", "key@2x.png"]) {
+			expect(existsSync(new URL(`../com.claudedeck.streamdeck.sdPlugin/imgs/actions/usage/${file}`, import.meta.url))).toBe(true);
+		}
+	});
+
 	it("has no interrupt action (Package 10 No-Go, docs/spike-results.md)", () => {
 		expect(manifest.Actions.map((a: { UUID: string }) => a.UUID)).not.toContain("com.claudedeck.streamdeck.interrupt");
 	});
