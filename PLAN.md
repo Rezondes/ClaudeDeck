@@ -29,6 +29,11 @@ Hinweis zur Reihenfolge: Die Packages folgen den technischen Abhängigkeiten, ni
 | 20 | Spike: Plugin-Module in Desktop | Es ist belegt, ob Plugin-Module in Claude Desktop laden und mit ClaudeDeck sprechen. | - |
 | 21 | Fragen nur über den Status-Key | Fragen von Claude lassen Allow/Always/Deny dunkel; nur der Status-Key blinkt, wartende Sessions ohne Key sind sichtbar. | 13, 16 |
 | 22 | Hintergrund-Agenten zählen als Working | Eine Session mit laufenden Hintergrund-Agenten bleibt Working statt Done. | 2 |
+| 23 | ClaudeDeck-Modul und Modul-Endpunkte | Ein Plugin-Modul meldet Session, Turn-ID, exakten Kontext und Rate Limits an ClaudeDeck. | 20 |
+| 24 | Modul-Setup in den Claude-Settings | `npm run module:install` / `module:remove` tragen die zwei nötigen Variablen idempotent ein bzw. aus. | 23 |
+| 25 | Exakter Kontext aus dem Modul | Der Kontextbalken nutzt den exakten Modul-Wert, sonst die Transkript-Schätzung. | 23 |
+| 26 | Plan-Usage-Key | Ein Key zeigt 5h- und 7d-Auslastung der Claude-Limits. | 23 |
+| 27 | Interrupt pro Session | Ein langer Druck auf einen Status-Key bricht genau diese Session ab. | 23 |
 
 Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen. Packages 12 und 17 sind unabhängig voneinander; 13 bis 16 folgen auf 12 (14, 15 und 16 berühren dieselben Dateien und laufen nacheinander).
 
@@ -1135,3 +1140,142 @@ Offener Punkt aus dem Review: Der Spike hat bisher nur `"background_tasks":[]` g
 1. `session-store.test.ts > "Stop with running background tasks keeps working"` - AC1, AC3
 2. `session-store.test.ts > "Stop without background tasks is done"` - AC2
 3. `status-action.test.ts > "reads context on Stop with background tasks"` - AC4
+
+---
+
+## Package 23: ClaudeDeck-Modul und Modul-Endpunkte
+
+**Ziel:** Ein ClaudeDeck-Plugin-Modul läuft in jeder Session und meldet Session-Start, Turn-Start (mit `turnId`) und Turn-Ende (mit Usage und Rate Limits) an das Stream-Deck-Plugin.
+
+**Abhängigkeiten:** Package 20 (Spike: Go)
+
+**Betroffene Dateien:**
+- `claude-module/.claude-plugin/plugin.json`, `claude-module/hooks/hooks.json`, `claude-module/hooks/register.ts` (neu, Modul)
+- `claude-module/hooks/register.test.ts` (neu, `claude plugin test`)
+- `src/server/hook-server.ts` (+ Test), `src/server/hook-contract.ts`, `src/domain/session-store.ts` (+ Test)
+
+### Kontext
+
+Der Spike (Package 20) hat gezeigt: Ein Modul lädt in CLI und Desktop, erreicht `127.0.0.1` per `$.http.fetch`, bekommt die `turnId` und nach jedem Turn `session.usage()` mit exaktem Kontext (`tokens`, `window`, `percent`) und Rate Limits (`five_hour`, `seven_day`). Das Modul ist ein eigener Plugin-Ordner `claude-module/`, getrennt vom Hook-Plugin `claude-plugin/`: Installierte Plugins laden derzeit keine Module, das Modul wird daher über `CLAUDE_CODE_PLUGIN_DIRS` aus dem Repo geladen (Package 24). Die Hooks aus Package 5 bleiben die Basis; ohne Modul funktioniert ClaudeDeck wie bisher. Das Modul sendet an neue Endpunkte `POST /module/<Event>` des Hook-Servers mit denselben Schutzregeln (JSON, kein `Origin`, Loopback, Größenlimit).
+
+### Acceptance Criteria
+
+- [ ] AC1: Das Modul sendet `session.start` (Session-ID, `cwd`), `turn.start` (`turnId`) und nach `turn.complete` die Usage (`context`, `rateLimits`) an `http://127.0.0.1:37419/module/<event>`.
+- [ ] AC2: Fehler beim Senden (Plugin aus) bleiben folgenlos: keine Exception, keine Meldung im Transkript, die Session läuft normal weiter.
+- [ ] AC3: Der Hook-Server nimmt `/module/session-start`, `/module/turn-start` und `/module/usage` an (gleiche Prüfungen wie `/hook/*`) und reicht sie an den Session-Store weiter.
+- [ ] AC4: Der Session-Store merkt sich pro Session `runningTurnId` (gesetzt bei `turn-start`, gelöscht bei `Stop`), `contextPercent` aus dem Modul und die zuletzt gemeldeten Rate Limits (global, nicht pro Session).
+- [ ] AC5: `claude plugin validate claude-module` ist grün; ein `claude plugin test`-Test prüft, dass das Modul bei `session.start` und `turn.complete` die erwarteten Requests absetzt.
+
+### Tests (TDD)
+
+1. `register.test.ts` (`claude plugin test`) `> "reports session start, turn start and usage"` - AC1
+2. `register.test.ts > "ignores a missing ClaudeDeck"` - AC2
+3. `hook-server.test.ts > "accepts module events with the same protections"` - AC3
+4. `session-store.test.ts > "tracks running turn, module context and rate limits"` - AC4
+
+---
+
+## Package 24: Modul-Setup in den Claude-Settings
+
+**Ziel:** `npm run module:install` und `npm run module:remove` tragen die zwei nötigen Variablen idempotent in die `env` von `~/.claude/settings.json` ein bzw. entfernen sie wieder.
+
+**Abhängigkeiten:** Package 23
+
+**Betroffene Dateien:**
+- `src/installer/module-setup.ts` (+ Test, neu), `src/installer/cli.ts` (neu), `package.json` (Scripts)
+
+### Kontext
+
+Module laden nur mit `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` (Early-Access-Schalter, gilt für alle Plugins mit Modulen) und über `CLAUDE_CODE_PLUGIN_DIRS` (Pfad zu `claude-module/`). Das ist eine bewusste Ausnahme vom Grundsatz, `~/.claude/settings.json` nie anzufassen: nur auf ausdrücklichen Befehl, nur diese zwei Schlüssel. Beim Spike wurde der komplette `env`-Block mit einem API-Key ausgegeben; das Setup gibt deshalb nie Werte aus der Datei aus.
+
+### Acceptance Criteria
+
+- [ ] AC1: `install` setzt `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` und ergänzt `CLAUDE_CODE_PLUGIN_DIRS` um den absoluten Pfad von `claude-module/` (vorhandene Einträge bleiben, Trennzeichen `;`), idempotent.
+- [ ] AC2: `remove` entfernt nur den ClaudeDeck-Pfad aus `CLAUDE_CODE_PLUGIN_DIRS` (Variable entfällt, wenn leer) und `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS`, falls ClaudeDeck es gesetzt hat (Marker-Datei neben dem Modul), sonst bleibt es.
+- [ ] AC3: Alle anderen Schlüssel der Datei bleiben unverändert; geschrieben wird atomar (temporäre Datei, umbenennen); ungültiges JSON bricht ab, ohne zu schreiben.
+- [ ] AC4: Die Ausgabe nennt nur die zwei ClaudeDeck-Schlüssel und ob sie geändert wurden, nie andere Werte aus der Datei.
+- [ ] AC5: Hinweis nach `install`: Neue Sessions laden das Modul, laufende nicht.
+
+### Tests (TDD)
+
+1. `module-setup.test.ts > "install adds both keys idempotently and keeps other env entries"` - AC1, AC3
+2. `> "remove deletes only ClaudeDeck entries"` - AC2
+3. `> "refuses invalid JSON"` - AC3
+4. `> "output never contains other env values"` - AC4
+
+---
+
+## Package 25: Exakter Kontext aus dem Modul
+
+**Ziel:** Der Kontextbalken zeigt bei Sessions mit Modul den exakten Wert aus `session.usage()`, sonst wie bisher die Schätzung aus dem Transkript.
+
+**Abhängigkeiten:** Package 23
+
+### Kontext
+
+Die Transkript-Schätzung (Package 3) kennt das Kontextfenster nicht und rechnet bei 1M-Sessions unter 200k Tokens gegen 200k. Das Modul liefert `percent` und `window` exakt.
+
+### Acceptance Criteria
+
+- [ ] AC1: Liegt für eine Session ein Modul-Wert vor, zeigt der Status-Key diesen; die Transkript-Lesung wird für diese Session übersprungen.
+- [ ] AC2: Ohne Modul-Wert bleibt das bisherige Verhalten (Package 3, 8, 13).
+- [ ] AC3: Ein Modul-Wert ersetzt einen älteren Transkript-Wert sofort.
+
+### Tests (TDD)
+
+1. `status-action.test.ts > "prefers the module's exact context"` - AC1, AC3
+2. `status-action.test.ts > "falls back to the transcript without module data"` - AC2
+
+---
+
+## Package 26: Plan-Usage-Key
+
+**Ziel:** Ein Key zeigt die Auslastung der Claude-Limits (5 Stunden und 7 Tage) als zwei farbige Balken.
+
+**Abhängigkeiten:** Package 23
+
+**Betroffene Dateien:**
+- `src/actions/usage-action.ts` (+ Test, neu), `src/render/usage-key.ts` (+ Test, neu), `manifest.json`, `imgs/actions/usage/`, `src/plugin.ts`, `src/plugin.test.ts`
+
+### Kontext
+
+Entspricht dem "Plan Usage"-Key der ursprünglichen Idee, aber ohne `claude setup-token`: Die Rate Limits kommen vom Modul nach jedem Turn (`five_hour`, `seven_day` mit `percentUsed` und `resetsAt`). Design nach dem Referenz-Screenshot: Titel "USAGE", zwei Zeilen "5h" und "7d" mit Prozentwert und Balken (grün unter 50 %, gelb 50 bis 79 %, rot ab 80 %).
+
+### Acceptance Criteria
+
+- [ ] AC1: Der Key zeigt 5h- und 7d-Auslastung mit Prozent und Balken in den Farben der Kontext-Schwellen.
+- [ ] AC2: Ohne Daten zeigt er "--"; Daten älter als der jeweilige `resetsAt` werden als "--" gezeigt (Fenster ist zurückgesetzt).
+- [ ] AC3: Ein Druck zeigt für 3 s die Reset-Zeiten (z. B. "5h 23:50", "7d Mo").
+- [ ] AC4: SVG-Tiny-tauglich, Schrift mindestens 14 px; Manifest-Eintrag mit Icon.
+
+### Tests (TDD)
+
+1. `usage-key.test.ts > "renders both limits with colored bars"` - AC1, AC4
+2. `usage-action.test.ts > "shows placeholders without data or after reset"` - AC2
+3. `usage-action.test.ts > "press shows reset times for 3 s"` - AC3
+
+---
+
+## Package 27: Interrupt pro Session
+
+**Ziel:** Ein langer Druck auf einen Status-Key bricht die laufende Antwort genau dieser Session ab.
+
+**Abhängigkeiten:** Package 23
+
+### Kontext
+
+Package 10 scheiterte, weil `Esc` an das Desktop-Fenster die sichtbare statt die gemeinte Session trifft. Mit dem Modul geht es gezielt: Das Stream-Deck-Plugin legt einen Befehl `abort` für die Session ab; das Modul fragt per `$.clock.every(1000)` `GET /module/commands?session=<id>` ab und ruft `$.turn.abort({ turnId })` für den laufenden Turn auf. Ein eigener Key entfällt: Ein langer Druck (mindestens 0,6 s) auf den Status-Key der Session löst den Abbruch aus, ein kurzer Druck öffnet wie bisher die Session.
+
+### Acceptance Criteria
+
+- [ ] AC1: Langer Druck auf einen Status-Key einer Session mit laufendem Turn legt einen `abort`-Befehl ab; kurzer Druck verhält sich wie bisher.
+- [ ] AC2: Das Modul holt Befehle höchstens einmal pro Sekunde ab und bricht nur den Turn mit der gemeldeten `turnId` ab; ein veralteter Befehl (anderer Turn) wird verworfen.
+- [ ] AC3: Ein Befehl verfällt nach 10 s, wenn ihn kein Modul abholt (Session ohne Modul); der Key zeigt dann `showAlert()`.
+- [ ] AC4: Ohne laufenden Turn (Session nicht `working`) löst ein langer Druck nichts aus außer `showAlert()`.
+- [ ] AC5: `GET /module/commands` liefert nur Befehle der angefragten Session und gilt mit denselben Schutzregeln wie die anderen Endpunkte.
+
+### Tests (TDD)
+
+1. `status-action.test.ts > "long press queues abort for the running turn"` - AC1, AC4
+2. `register.test.ts > "polls commands and aborts only the matching turn"` - AC2
+3. `hook-server.test.ts > "serves commands per session and expires them"` - AC3, AC5
