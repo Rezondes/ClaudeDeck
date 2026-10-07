@@ -4,10 +4,12 @@
 #   -Window minimize|maximize|restore -Hwnd <n>  sets the window state; maximize and restore also bring it forward
 #   -State -Hwnd <n>                             prints {"minimized":bool,"maximized":bool}
 #   -OpenSession <local_id>                      opens claude://code/continue for that Desktop session and brings Desktop forward
+#   -OpenNeedsInput                              opens claude://code/needs-input (Sessions Waiting for You) and brings Desktop forward
 param(
 	[switch]$List,
 	# \z, not $: .NET's $ also matches before a trailing newline. Same rule as the Desktop URL handler.
 	[ValidatePattern('^local_[A-Za-z0-9-]{1,64}\z')][string]$OpenSession,
+	[switch]$OpenNeedsInput,
 	[long]$Focus = 0,
 	[ValidateSet("minimize", "maximize", "restore")][string]$Window,
 	[switch]$State,
@@ -52,8 +54,10 @@ if ($Focus -ne 0) {
 	exit 0
 }
 
-if ($OpenSession) {
-	Start-Process "claude://code/continue?session=$OpenSession&source=claudedeck"
+if ($OpenSession -or $OpenNeedsInput) {
+	# Fixed URLs only; the session id is checked by ValidatePattern above.
+	if ($OpenSession) { Start-Process "claude://code/continue?session=$OpenSession&source=claudedeck" }
+	else { Start-Process "claude://code/needs-input?source=claudedeck" }
 	# The URL handler may start Desktop first: wait up to ~2 s for its window.
 	for ($i = 0; $i -lt 10; $i++) {
 		$desktop = Get-Process -Name claude -ErrorAction SilentlyContinue |
@@ -85,5 +89,5 @@ if ($Window -and $Hwnd -ne 0) {
 	exit 0
 }
 
-Write-Error "usage: focus-window.ps1 -List | -Focus <hwnd> | -Window minimize|maximize|restore -Hwnd <hwnd> | -State -Hwnd <hwnd> | -OpenSession <local_id>"
+Write-Error "usage: focus-window.ps1 -List | -Focus <hwnd> | -Window minimize|maximize|restore -Hwnd <hwnd> | -State -Hwnd <hwnd> | -OpenSession <local_id> | -OpenNeedsInput"
 exit 2

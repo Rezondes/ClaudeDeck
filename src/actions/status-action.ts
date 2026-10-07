@@ -65,6 +65,8 @@ export class StatusKeys {
 		private readonly listDesktopSessions: () => Promise<DesktopSession[]> = async () => [],
 		/** Opens a Desktop session by its local id; resolves false when that did not work. */
 		private readonly openSession: (localId: string) => Promise<boolean> = async () => false,
+		/** Opens "Sessions Waiting for You" in Claude Desktop; resolves false when that did not work. */
+		private readonly openNeedsInput: () => Promise<boolean> = async () => false,
 	) {
 		store.onChange((sessionId) => this.#sessionChanged(sessionId));
 		setInterval(() => void this.seed(), SEED_INTERVAL_MS);
@@ -121,16 +123,19 @@ export class StatusKeys {
 
 	/** The session shown on this key, if any. */
 	sessionOf(view: KeyView): Session | undefined {
-		const slot = this.#slots.slotOf(view.id);
-		return this.store.sessions().find((s) => s.slot === slot);
+		return this.#sessionOn(view.id);
 	}
 
 	press(view: KeyView): void {
 		const session = this.sessionOf(view);
-		if (!session) return;
+		const attempt = (show: () => Promise<boolean>) => show().catch(() => false);
+		if (!session) {
+			// An empty key showing "N waiting" leads to the sessions without a key.
+			if (this.#waitingWithoutKey() > 0) attempt(this.openNeedsInput).then((shown) => shown || view.showAlert()).catch(() => {});
+			return;
+		}
 		this.store.keyPressed(session.id);
 		const localId = this.#localIds.get(session.id);
-		const attempt = (show: () => Promise<boolean>) => show().catch(() => false);
 		const focus = () => attempt(() => this.focusProject(session.projectName));
 		// Deep link first for Desktop sessions, window focus as fallback (and for CLI sessions); alert only when both fail.
 		(localId ? attempt(() => this.openSession(localId)).then((opened) => opened || focus()) : focus())
@@ -187,6 +192,19 @@ export class StatusKeys {
 		}
 		if (before !== undefined && before !== session?.slot) this.#renderSlot(before);
 		if (session) this.#renderSlot(session.slot);
+		// The waiting count on empty keys depends on every session.
+		for (const id of this.#views.keys()) if (!this.#sessionOn(id)) this.#render(id);
+	}
+
+	#sessionOn(id: string): Session | undefined {
+		const slot = this.#slots.slotOf(id);
+		return this.store.sessions().find((s) => s.slot === slot);
+	}
+
+	/** Sessions that need the user (input or approval) but sit on a slot beyond the last key. */
+	#waitingWithoutKey(): number {
+		const keyCount = this.#slots.ids().length;
+		return this.store.sessions().filter((s) => s.slot >= keyCount && (s.state === "input" || s.state === "approval")).length;
 	}
 
 	#renderSlot(slot: number): void {
@@ -197,11 +215,10 @@ export class StatusKeys {
 	#render(id: string): void {
 		const view = this.#views.get(id);
 		if (!view) return;
-		const slot = this.#slots.slotOf(id);
-		const session = this.store.sessions().find((s) => s.slot === slot);
+		const session = this.#sessionOn(id);
 		if (!session) {
 			this.#stopFlash(id);
-			view.setImage(toDataUrl(renderEmptyStatusKey()));
+			view.setImage(toDataUrl(renderEmptyStatusKey(this.#waitingWithoutKey())));
 			return;
 		}
 		this.#renderedSlot.set(session.id, session.slot);

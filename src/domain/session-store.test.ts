@@ -68,6 +68,16 @@ describe("SessionStore", () => {
 		expect(store.get("s1")?.state).toBe("done");
 	});
 
+	it("AskUserQuestion permission request does not count as approval", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(enter.input);
+		store.handle(event("PermissionRequest", { tool_name: "AskUserQuestion" }));
+		expect(store.get("s1")).toMatchObject({ state: "input", pendingApprovals: 0 });
+		store.handle(enter.working);
+		store.handle(event("PermissionRequest", { tool_name: "AskUserQuestion" }));
+		expect(store.get("s1")).toMatchObject({ state: "input", pendingApprovals: 0 });
+	});
+
 	it("needs one decision per pending approval", () => {
 		const store = new SessionStore(() => 0);
 		store.handle(enter.approval);

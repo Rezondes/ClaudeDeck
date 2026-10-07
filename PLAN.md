@@ -1004,9 +1004,6 @@ Testbefehl: `npm test`
 ### Out of Scope
 
 - Fenstersteuerung für Terminals.
-[INFO] Recording command outcome: cat
-
-[OK] Command outcome recorded
 
 ---
 
@@ -1076,9 +1073,6 @@ Neben Hooks kennt Claude Code Plugin-Module (`hooks/hooks.json` mit `"modules"`,
 - [ ] AC3: Das Dokument sagt, ob `$.clock.every` und `session.usage` in Desktop funktionieren.
 - [ ] AC4: Das Dokument endet mit Go/No-Go und dem Weg, wie ClaudeDeck das Modul dauerhaft für alle Sessions laden würde, inklusive Folgen für die Nutzer-Settings.
 - [ ] AC5: Nach dem Spike sind keine Spike-Einstellungen zurückgeblieben (Settings unverändert oder wiederhergestellt).
-[INFO] Recording command outcome: cat
-
-[OK] Command outcome recorded
 
 ---
 
@@ -1110,9 +1104,6 @@ Mehrere Sessions mit offenen Fragen: Jede Session blinkt auf ihrem eigenen Key. 
 4. `status-action.test.ts > "pressing the waiting key opens needs-input"` - AC4
 5. `focus-window.test.ts > "opens needs-input with a fixed command"` - AC5
 6. `render.test.ts > "waiting key renders count"` - AC3
-[INFO] Recording command outcome: cat
-
-[OK] Command outcome recorded
 
 ---
 

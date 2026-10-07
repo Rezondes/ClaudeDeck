@@ -41,6 +41,12 @@ describe("window helper", () => {
 		expect(run).toHaveBeenCalledWith("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "s.ps1", "-OpenSession", "local_ab-12"]);
 	});
 
+	it("opens needs-input with a fixed command", async () => {
+		const run = vi.fn(async () => "");
+		await createWindowHelper("s.ps1", run).openNeedsInput();
+		expect(run).toHaveBeenCalledWith("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "s.ps1", "-OpenNeedsInput"]);
+	});
+
 	it("refuses invalid local ids", async () => {
 		const run = vi.fn(async () => "");
 		const helper = createWindowHelper("s.ps1", run);

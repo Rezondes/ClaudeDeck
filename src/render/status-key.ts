@@ -101,9 +101,11 @@ export function renderStatusKey({ project, title, state, contextPercent, flash =
 	]);
 }
 
-export function renderEmptyStatusKey(): string {
+/** A key without a session; waiting > 0 shows how many sessions need input but have no key of their own. */
+export function renderEmptyStatusKey(waiting = 0): string {
 	return svgDocument([
 		`<rect width="144" height="144" fill="#000000"/>`,
-		`<rect ${KEY_RECT} fill="${KEY_BACKGROUND}" stroke="${BAR_TRACK}" stroke-width="2"/>`,
+		`<rect ${KEY_RECT} fill="${KEY_BACKGROUND}" stroke="${waiting > 0 ? STATE_COLORS.input : BAR_TRACK}" stroke-width="2"/>`,
+		...(waiting > 0 ? [`<text x="72" y="78" text-anchor="middle" font-size="18" font-weight="700" fill="${STATE_COLORS.input}">${waiting} waiting</text>`] : []),
 	]);
 }

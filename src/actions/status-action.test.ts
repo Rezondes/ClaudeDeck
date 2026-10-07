@@ -282,6 +282,46 @@ describe("StatusKeys", () => {
 		});
 	});
 
+	it("empty key shows sessions waiting without a key", () => {
+		const { keys, send, store } = setup();
+		const k0 = view("k0");
+		const k1 = view("k1");
+		keys.appear(k0, { column: 0, row: 0 }, {});
+		keys.appear(k1, { column: 1, row: 0 }, { project: "F:\\Code\\none" }); // pinned to a folder without sessions: stays empty
+		send(event("UserPromptSubmit", "a"));
+		send(event("PreToolUse", "b", { tool_name: "AskUserQuestion" }));
+		send(event("PermissionRequest", "c", { tool_name: "Bash" }));
+		send(event("Stop", "d"));
+		expect([store.get("b")?.slot, store.get("c")?.slot]).toEqual([2, 3]);
+		expect(k1.setImage).toHaveBeenLastCalledWith(toDataUrl(renderEmptyStatusKey(2)));
+		store.approvalDecided("c");
+		expect(k1.setImage).toHaveBeenLastCalledWith(toDataUrl(renderEmptyStatusKey(1)));
+		send(event("PostToolUse", "b"));
+		expect(k1.setImage).toHaveBeenLastCalledWith(toDataUrl(renderEmptyStatusKey()));
+	});
+
+	it("pressing the waiting key opens needs-input", async () => {
+		async function pressWaiting(open: () => Promise<boolean>) {
+			const openNeedsInput = vi.fn(open);
+			const store = new SessionStore(() => 0);
+			const keys = new StatusKeys(store, async () => null, () => 0, async () => true, async () => [], async () => true, openNeedsInput);
+			const k0 = view("k0");
+			keys.appear(k0, { column: 0, row: 0 }, { project: "F:\\Code\\none" });
+			keys.press(k0); // nothing waiting yet
+			expect(openNeedsInput).not.toHaveBeenCalled();
+			store.handle(event("PreToolUse", "a", { tool_name: "AskUserQuestion" }));
+			keys.press(k0);
+			for (let i = 0; i < 10; i++) await Promise.resolve();
+			return { openNeedsInput, alert: k0.showAlert };
+		}
+
+		const opened = await pressWaiting(async () => true);
+		expect(opened.openNeedsInput).toHaveBeenCalledOnce();
+		expect(opened.alert).not.toHaveBeenCalled();
+		expect((await pressWaiting(async () => false)).alert).toHaveBeenCalledOnce();
+		expect((await pressWaiting(() => Promise.reject(new Error("no desktop")))).alert).toHaveBeenCalledOnce();
+	});
+
 	it("press on an empty key does nothing", () => {
 		const { keys } = setup();
 		const k0 = view("k0");
@@ -378,7 +418,7 @@ describe("StatusKeys", () => {
 			catalog = [desktop("archived", "F:\\Code\\archived", 1, true), ...["aged", "working", "done", "approval"].map((id) => desktop(id, `F:\\Code\\${id}`, 13))];
 			await keys.seed();
 			expect(store.sessions().map((s) => s.id).sort()).toEqual(["approval", "cli", "done", "working"]);
-			expect(k0.setImage).toHaveBeenLastCalledWith(toDataUrl(renderEmptyStatusKey()));
+			expect(k0.setImage).toHaveBeenLastCalledWith(toDataUrl(renderEmptyStatusKey(1))); // "approval" has no key
 		});
 
 		it("takes titles from the catalog, also for sessions started by hook events", async () => {

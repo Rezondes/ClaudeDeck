@@ -55,6 +55,14 @@ describe("render", () => {
 		expect(svg).toMatchSnapshot();
 	});
 
+	it("waiting key renders count", () => {
+		const svg = renderEmptyStatusKey(3);
+		expect(svg).toContain(`fill="${STATE_COLORS.input}">3 waiting<`);
+		expect(svg).not.toMatch(/filter|feGaussianBlur|\sopacity=/);
+		for (const [, size] of svg.matchAll(/font-size="(\d+)"/g)) expect(Number(size)).toBeGreaterThanOrEqual(14);
+		expect(renderEmptyStatusKey(0)).toBe(renderEmptyStatusKey());
+	});
+
 	it("decision key idle vs pending", () => {
 		for (const kind of ["allow", "always", "deny"] as const) {
 			const idle = renderDecisionKey({ kind, pending: null });

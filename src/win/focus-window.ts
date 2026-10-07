@@ -45,6 +45,10 @@ export function createWindowHelper(scriptPath: string, run: RunFile = runFile) {
 			if (!LOCAL_ID.test(localId)) throw new Error(`invalid desktop session id: ${JSON.stringify(localId)}`);
 			await ps("-OpenSession", localId);
 		},
+		/** Opens claude://code/needs-input ("Sessions Waiting for You") and brings the Desktop window forward. */
+		async openNeedsInput(): Promise<void> {
+			await ps("-OpenNeedsInput");
+		},
 	};
 }
 

@@ -33,6 +33,8 @@ export type SeedEntry = { sessionId: string; cwd: string; transcriptPath: string
 const DONE_TIMEOUT_MS = 10 * 60 * 1000;
 const INPUT_NOTIFICATIONS = ["elicitation_dialog", "agent_needs_input"];
 
+const isQuestion = (event: HookEvent) => event.tool_name === "AskUserQuestion";
+
 /** New state for an event, or undefined when the event does not change the state. */
 function stateFor(event: HookEvent): SessionState | undefined {
 	switch (event.hook_event_name) {
@@ -40,11 +42,12 @@ function stateFor(event: HookEvent): SessionState | undefined {
 		case "PostToolUse":
 			return "working";
 		case "PreToolUse":
-			return event.tool_name === "AskUserQuestion" ? "input" : "working";
+			return isQuestion(event) ? "input" : "working";
 		case "Notification":
 			return INPUT_NOTIFICATIONS.includes(event.notification_type ?? "") ? "input" : undefined;
 		case "PermissionRequest":
-			return "working"; // shown as "approval" via pendingApprovals until decided
+			// Questions are answered in Claude, not queued (hook server); others show as "approval" via pendingApprovals until decided.
+			return isQuestion(event) ? "input" : "working";
 		case "Stop":
 			// The main agent's turn ended, but background agents it started are still running.
 			return Array.isArray(event.background_tasks) && event.background_tasks.length > 0 ? "working" : "done";
@@ -90,7 +93,7 @@ export class SessionStore {
 		const known = this.#sessions.get(event.session_id);
 		const before = known && { state: known.state, permissionMode: known.permissionMode };
 		const session = known ?? this.#create({ sessionId: event.session_id, cwd: event.cwd, transcriptPath: event.transcript_path, lastActivityAt: this.#now() });
-		if (event.hook_event_name === "PermissionRequest") {
+		if (event.hook_event_name === "PermissionRequest" && !isQuestion(event)) {
 			session.pendingApprovals++;
 		}
 		session.baseState = stateFor(event) ?? session.baseState;

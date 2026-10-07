@@ -84,6 +84,15 @@ describe("hook server", () => {
 		expect(onEvent).toHaveBeenCalledOnce();
 	});
 
+	it("answers AskUserQuestion permission requests immediately without queueing", async () => {
+		const { onEvent, approvals, post } = await start();
+		const res = await post("/hook/PermissionRequest", payload({ tool_name: "AskUserQuestion", tool_input: {} }));
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({});
+		expect(approvals.count).toBe(0);
+		expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ hook_event_name: "PermissionRequest", tool_name: "AskUserQuestion" }));
+	});
+
 	it("client abort cancels pending request", async () => {
 		const { approvals, post } = await start();
 		const settled = new Promise<string>((resolve) => approvals.onSettled(resolve));

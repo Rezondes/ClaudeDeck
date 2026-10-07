@@ -54,7 +54,8 @@ export function createHookServer({ onEvent, approvals, log }: HookServerDeps): H
 		}
 
 		onEvent(event);
-		if (name !== "PermissionRequest") return send(res, 200, {});
+		// A question cannot be answered with Allow/Deny: let Claude ask it as usual (PLAN.md, Package 21).
+		if (name !== "PermissionRequest" || event.tool_name === "AskUserQuestion") return send(res, 200, {});
 
 		const id = approvals.add(event as PermissionRequestEvent, (response) => send(res, 200, response));
 		res.on("close", () => {
