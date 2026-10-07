@@ -267,7 +267,7 @@ Testbefehl: `npm test`
 
 ### Kontext
 
-Jeder Hook liefert `transcript_path`. Das Transkript ist JSONL, assistant-Einträge enthalten `message.usage` mit `input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens` und `output_tokens` (geprüft an `~/.claude/projects/F--Code-ClaudeDeck/*.jsonl`, also auch für Desktop-Sessions). Die aktuelle Kontextgröße ist die Summe dieser Werte im **letzten** assistant-Eintrag, der nicht Sidechain ist. Das Limit ergibt sich aus der Modell-ID: `1 000 000`, wenn die ID `[1m]` enthält, sonst `200 000`. Transkripte können groß werden, deshalb wird nur das Dateiende gelesen.
+Jeder Hook liefert `transcript_path`. Das Transkript ist JSONL, assistant-Einträge enthalten `message.usage` mit `input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens` und `output_tokens` (geprüft an `~/.claude/projects/F--Code-ClaudeDeck/*.jsonl`, also auch für Desktop-Sessions). Die aktuelle Kontextgröße ist die Summe dieser Werte im **letzten** assistant-Eintrag, der nicht Sidechain ist. Das Limit: `1 000 000`, wenn die Modell-ID `[1m]` enthält **oder** mehr als 200 000 Tokens belegt sind (echte Transkripte enthalten `[1m]` nie, siehe Review), sonst `200 000`. Transkripte können groß werden, deshalb wird nur das Dateiende gelesen.
 
 ### Acceptance Criteria
 
