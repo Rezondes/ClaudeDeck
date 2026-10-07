@@ -134,7 +134,7 @@ Testbefehl: keiner (manuell).
 - `package.json` (neu)
 - `tsconfig.json` (neu)
 - `rollup.config.mjs` (neu, aus dem `streamdeck create`-Template)
-- `vitest.config.ts` (neu)
+- `vitest.config.ts` (entfällt, Vitest-Defaults reichen)
 - `.gitignore` (neu)
 - `com.claudedeck.streamdeck.sdPlugin/manifest.json` (neu)
 - `com.claudedeck.streamdeck.sdPlugin/imgs/` (neu, Platzhalter-Icons)
@@ -150,21 +150,21 @@ Das Projekt ist leer. Das Stream Deck CLI ist nicht installiert. Das offizielle 
 - [ ] AC1: `npm run build` erzeugt `com.claudedeck.streamdeck.sdPlugin/bin/plugin.js` ohne Fehler.
 - [ ] AC2: `npm test` läuft durch und führt mindestens einen Test aus.
 - [ ] AC3: `streamdeck link com.claudedeck.streamdeck.sdPlugin` ist erfolgt. Nach `streamdeck restart com.claudedeck.streamdeck` erscheint "ClaudeDeck" mit allen sechs Actions in der Stream Deck App (manueller Check).
-- [ ] AC4: `manifest.json` deklariert `"OS": [{ "Platform": "windows", "MinimumVersion": "10" }]` und `"Software": { "MinimumVersion": "6.9" }`.
+- [ ] AC4: `manifest.json` deklariert `"OS": [{ "Platform": "windows", "MinimumVersion": "10" }]` und `"Software": { "MinimumVersion": "7.1" }` (SDK 3 des `@elgato/streamdeck`-Pakets verlangt 7.1).
 - [ ] AC5: `.gitignore` enthält `node_modules/`, `*.sdPlugin/bin/`, `*.log`, `.claude-flow/`, `.swarm/`, `ruvector.db` (bereits vor Package 0 angelegt).
 
 ### Tests (TDD)
 
 1. `src/plugin.test.ts > "manifest declares all ClaudeDeck actions"` - deckt AC3 teilweise und AC4 ab
    - Gegeben: `manifest.json` wird als JSON eingelesen.
-   - Erwartet: UUIDs `com.claudedeck.streamdeck.allow`, `.always`, `.deny`, `.status`, `.interrupt`, `.mode` sind vorhanden, Plattform ist `windows`, `Software.MinimumVersion` ist `6.9`.
+   - Erwartet: UUIDs `com.claudedeck.streamdeck.allow`, `.always`, `.deny`, `.status`, `.interrupt`, `.mode` sind vorhanden, Plattform ist `windows`, `Software.MinimumVersion` ist `7.1`.
 
 Testbefehl: `npm test` (wird in diesem Package als `vitest run` angelegt)
 
 ### Umsetzungsschritte
 
-1. `npm install -g @elgato/cli`.
-2. `streamdeck create` im Projekt-Root mit UUID `com.claudedeck.streamdeck`.
+1. `npm i -D @elgato/cli` (lokal statt global, Aufruf per `npx streamdeck`, `npm run link`, `npm run restart`).
+2. Dateien aus `node_modules/@elgato/cli/template` von Hand übernehmen (`streamdeck create` ist interaktiv), UUID `com.claudedeck.streamdeck`.
 3. `npm i -D vitest`, Script `"test": "vitest run"` ergänzen.
 4. Test schreiben, rot sehen (Actions fehlen im Manifest).
 5. Actions im Manifest eintragen, Test grün.

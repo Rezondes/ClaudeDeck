@@ -1,0 +1,125 @@
+{
+	"Name": "ClaudeDeck",
+	"Version": "0.1.0.0",
+	"Author": "Steven Richter",
+	"Actions": [
+		{
+			"Name": "Allow",
+			"UUID": "com.claudedeck.streamdeck.allow",
+			"Icon": "imgs/actions/allow/icon",
+			"Tooltip": "Approve the pending Claude Code permission request once.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/allow/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Always Allow",
+			"UUID": "com.claudedeck.streamdeck.always",
+			"Icon": "imgs/actions/always/icon",
+			"Tooltip": "Approve and stop asking for this kind of request for the rest of the session.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/always/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Deny",
+			"UUID": "com.claudedeck.streamdeck.deny",
+			"Icon": "imgs/actions/deny/icon",
+			"Tooltip": "Reject the pending Claude Code permission request.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/deny/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Claude Status",
+			"UUID": "com.claudedeck.streamdeck.status",
+			"Icon": "imgs/actions/status/icon",
+			"Tooltip": "Live status and context usage of a Claude Code session. Press to focus its window.",
+			"PropertyInspectorPath": "ui/status.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/status/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Interrupt",
+			"UUID": "com.claudedeck.streamdeck.interrupt",
+			"Icon": "imgs/actions/interrupt/icon",
+			"Tooltip": "Interrupt a running Claude Code session.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/interrupt/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Permission Mode",
+			"UUID": "com.claudedeck.streamdeck.mode",
+			"Icon": "imgs/actions/mode/icon",
+			"Tooltip": "Approve the pending request and switch the session permission mode.",
+			"PropertyInspectorPath": "ui/mode.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/mode/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
+		}
+	],
+	"Category": "ClaudeDeck",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Approve Claude Code permission prompts and watch session status from your Stream Deck. Unofficial, not affiliated with Anthropic.",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "7.1"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "24",
+		"Debug": "enabled"
+	},
+	"UUID": "com.claudedeck.streamdeck"
+}

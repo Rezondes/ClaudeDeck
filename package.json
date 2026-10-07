@@ -1,0 +1,30 @@
+{
+  "name": "claudedeck",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stream Deck plugin for Claude Code: approve permission prompts and watch session status from your Stream Deck",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.claudedeck.streamdeck\"",
+    "test": "vitest run",
+    "link": "streamdeck link com.claudedeck.streamdeck.sdPlugin",
+    "restart": "streamdeck restart com.claudedeck.streamdeck"
+  },
+  "dependencies": {
+    "@elgato/streamdeck": "^3.0.1"
+  },
+  "devDependencies": {
+    "@elgato/cli": "^1.10.1",
+    "@rollup/plugin-commonjs": "^29.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@tsconfig/node20": "^20.1.10",
+    "@types/node": "^24.19.1",
+    "rollup": "^4.64.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}
