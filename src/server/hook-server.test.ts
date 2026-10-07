@@ -1,7 +1,7 @@
 import { createServer } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { HookEvent } from "../domain/hook-event.js";
+import type { HookEvent, ModuleEvent } from "../domain/hook-event.js";
 import { createHookServer, type HookServer } from "./hook-server.js";
 import { PendingApprovals } from "./pending-approvals.js";
 
@@ -17,8 +17,9 @@ let server: HookServer | undefined;
 
 async function start() {
 	const onEvent = vi.fn<(event: HookEvent) => void>();
+	const onModuleEvent = vi.fn<(event: ModuleEvent) => void>();
 	const approvals = new PendingApprovals();
-	server = createHookServer({ onEvent, approvals, log: () => {} });
+	server = createHookServer({ onEvent, onModuleEvent, approvals, log: () => {} });
 	expect(await server.listen(0)).toBe(true);
 	const base = `http://127.0.0.1:${server.port()}`;
 	const post = (path: string, body: unknown, headers: Record<string, string> = {}, signal?: AbortSignal) =>
@@ -28,7 +29,7 @@ async function start() {
 			body: typeof body === "string" ? body : JSON.stringify(body),
 			signal,
 		});
-	return { onEvent, approvals, base, post };
+	return { onEvent, onModuleEvent, approvals, base, post };
 }
 
 afterEach(async () => {
@@ -105,6 +106,32 @@ describe("hook server", () => {
 		expect(approvals.count).toBe(0);
 	});
 
+	it("accepts module events with the same protections", async () => {
+		const { onEvent, onModuleEvent, base, post } = await start();
+		const turn = { sessionId: "s1", turnId: "t1" };
+		for (const path of ["/module/session-start", "/module/turn-start", "/module/usage"]) {
+			const res = await post(path, turn);
+			expect(res.status).toBe(200);
+			expect(await res.json()).toEqual({});
+		}
+		expect(onModuleEvent.mock.calls.map(([e]) => e.name)).toEqual(["session-start", "turn-start", "usage"]);
+		expect(onModuleEvent).toHaveBeenCalledWith({ name: "turn-start", sessionId: "s1", turnId: "t1" });
+
+		const preflight = await fetch(`${base}/module/usage`, { method: "OPTIONS" });
+		const rejected = [
+			preflight,
+			await post("/module/usage", turn, { origin: "https://evil.example" }),
+			await post("/module/usage", JSON.stringify(turn), { "content-type": "text/plain" }),
+			await post("/module/usage", { ...turn, pad: "x".repeat(1024 * 1024) }),
+			await post("/module/usage", "{not json"),
+			await post("/module/usage", { sessionId: 42 }),
+			await post("/module/other", turn),
+		];
+		expect(rejected.map((res) => res.status)).toEqual([405, 403, 415, 413, 400, 400, 404]);
+		expect(onModuleEvent).toHaveBeenCalledTimes(3);
+		expect(onEvent).not.toHaveBeenCalled();
+	});
+
 	it("binds to loopback only", async () => {
 		await start();
 		expect(server?.address()).toBe("127.0.0.1");
@@ -115,7 +142,7 @@ describe("hook server", () => {
 		await new Promise<void>((resolve) => blocker.listen(0, "127.0.0.1", resolve));
 		const port = (blocker.address() as { port: number }).port;
 		const log = vi.fn();
-		server = createHookServer({ onEvent: vi.fn(), approvals: new PendingApprovals(), log });
+		server = createHookServer({ onEvent: vi.fn(), onModuleEvent: vi.fn(), approvals: new PendingApprovals(), log });
 		expect(await server.listen(port)).toBe(false);
 		expect(log).toHaveBeenCalledWith(expect.stringContaining(String(port)));
 		await new Promise((resolve) => blocker.close(resolve));

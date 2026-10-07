@@ -83,6 +83,7 @@ const server = createHookServer({
 		store.handle(event);
 		statusKeys.hookEvent(event);
 	},
+	onModuleEvent: (event) => store.handleModule(event),
 	approvals,
 	log: (message) => log.error(message),
 });

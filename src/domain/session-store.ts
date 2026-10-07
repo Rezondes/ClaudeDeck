@@ -1,4 +1,4 @@
-import type { HookEvent } from "./hook-event.js";
+import type { HookEvent, ModuleEvent } from "./hook-event.js";
 
 export type SessionState = "working" | "approval" | "input" | "done" | "idle";
 
@@ -22,7 +22,16 @@ export interface Session {
 	permissionMode?: string;
 	/** now() of the last hook event. */
 	lastEventAt: number;
+	/** turnId of the running turn, from the plugin module (turn-start); cleared on Stop and on module usage (turn completed). */
+	runningTurnId?: string;
+	/** Exact context usage after the last turn, from the plugin module; undefined without module. */
+	moduleContext?: ModuleContext;
 }
+
+export type ModuleContext = { percent?: number; window?: number; tokens?: number };
+
+/** Plan usage limits as the plugin module reported them last (any session), e.g. { kind: "five_hour", percentUsed, resetsAt }. */
+export type RateLimits = { limits: unknown[]; at: number };
 
 /** A status key slot bound to a project folder. latestOnly: the slot always shows the folder's session with the newest event. */
 export type Pin = { cwd: string; latestOnly: boolean };
@@ -70,6 +79,10 @@ export class SessionStore {
 	/** Slot to pin with normalized cwd. */
 	#pins = new Map<number, Pin>();
 	readonly #listeners: ((sessionId: string) => void)[] = [];
+	readonly #rateLimitListeners: ((rateLimits: RateLimits) => void)[] = [];
+	#rateLimits: RateLimits | undefined;
+	/** turn-start of sessions no hook event created yet (the module can race ahead of UserPromptSubmit); applied by #create. */
+	readonly #pendingTurnIds = new Map<string, string>();
 	readonly #now: () => number;
 
 	constructor(now: () => number) {
@@ -79,6 +92,15 @@ export class SessionStore {
 	/** Called once per real change: session created or removed, state or permission mode changed. */
 	onChange(listener: (sessionId: string) => void): void {
 		this.#listeners.push(listener);
+	}
+
+	/** Called whenever the plugin module reports a non-empty rate limit list. */
+	onRateLimits(listener: (rateLimits: RateLimits) => void): void {
+		this.#rateLimitListeners.push(listener);
+	}
+
+	rateLimits(): RateLimits | undefined {
+		return this.#rateLimits;
 	}
 
 	get(sessionId: string): Session | undefined {
@@ -99,11 +121,41 @@ export class SessionStore {
 		session.baseState = stateFor(event) ?? session.baseState;
 		session.state = this.#visibleState(session);
 		session.permissionMode = event.permission_mode ?? session.permissionMode;
+		if (event.hook_event_name === "Stop") session.runningTurnId = undefined;
 		session.lastEventAt = this.#now();
 		const moved = known ? this.#followLatest(session) : this.#distribute(normalizeCwd(session.cwd));
 		const changed = before?.state !== session.state || before.permissionMode !== session.permissionMode;
 		for (const id of new Set([...(changed ? [session.id] : []), ...moved])) {
 			this.#notify(id);
+		}
+	}
+
+	/**
+	 * An event of the plugin module. It never creates a session (hooks do); rate limits are global and kept for unknown sessions too.
+	 * An empty list (before the session's first API call) does not erase known limits. Notifies only when the context percent changed.
+	 */
+	handleModule(event: ModuleEvent): void {
+		if (event.name === "usage" && Array.isArray(event.rateLimits) && event.rateLimits.length > 0) {
+			const rateLimits = { limits: event.rateLimits, at: this.#now() };
+			this.#rateLimits = rateLimits;
+			for (const listener of this.#rateLimitListeners) listener(rateLimits);
+		}
+		const session = this.#sessions.get(event.sessionId);
+		if (event.name === "turn-start" && typeof event.turnId === "string") {
+			if (session) session.runningTurnId = event.turnId;
+			// ponytail: entries of sessions that never get a hook event stay until their usage arrives; cap if that ever matters.
+			else this.#pendingTurnIds.set(event.sessionId, event.turnId);
+		}
+		if (event.name === "usage") {
+			this.#pendingTurnIds.delete(event.sessionId);
+			if (session) session.runningTurnId = undefined;
+		}
+		if (!session) return;
+		if (event.name === "usage" && typeof event.context === "object" && event.context) {
+			const number = (value: unknown) => (typeof value === "number" ? value : undefined);
+			const before = session.moduleContext?.percent;
+			session.moduleContext = { percent: number(event.context.percent), window: number(event.context.window), tokens: number(event.context.tokens) };
+			if (session.moduleContext.percent !== before) this.#notify(session.id);
 		}
 	}
 
@@ -193,7 +245,9 @@ export class SessionStore {
 			projectName: projectNameOf(entry.cwd),
 			transcriptPath: entry.transcriptPath,
 			lastEventAt: entry.lastActivityAt,
+			runningTurnId: this.#pendingTurnIds.get(entry.sessionId),
 		};
+		this.#pendingTurnIds.delete(entry.sessionId);
 		this.#sessions.set(session.id, session);
 		return session;
 	}

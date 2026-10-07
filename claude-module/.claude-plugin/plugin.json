@@ -1,0 +1,6 @@
+{
+	"name": "claudedeck-module",
+	"version": "0.1.0",
+	"description": "Reports session start, the running turn and exact context and rate-limit usage to the ClaudeDeck Stream Deck plugin. Does nothing when the Stream Deck plugin is not running.",
+	"author": { "name": "Rezondes" }
+}

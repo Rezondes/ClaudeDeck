@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import type { HookEvent } from "../domain/hook-event.js";
-import { HOOK_EVENTS, type HookEventName } from "./hook-contract.js";
+import type { HookEvent, ModuleEvent } from "../domain/hook-event.js";
+import { HOOK_EVENTS, MODULE_EVENTS, type HookEventName, type ModuleEventName } from "./hook-contract.js";
 import type { PendingApprovals, PermissionRequestEvent } from "./pending-approvals.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -9,6 +9,8 @@ const MAX_BODY_BYTES = 1024 * 1024;
 export interface HookServerDeps {
 	/** Every accepted event, PermissionRequest included (before it is queued). */
 	onEvent: (event: HookEvent) => void;
+	/** Every accepted POST /module/<event> from the plugin module. */
+	onModuleEvent: (event: ModuleEvent) => void;
 	approvals: PendingApprovals;
 	log: (message: string) => void;
 }
@@ -21,8 +23,8 @@ export interface HookServer {
 	address(): string | undefined;
 }
 
-/** Local HTTP endpoint for the hooks in claude-plugin/hooks/hooks.json. Loopback only. */
-export function createHookServer({ onEvent, approvals, log }: HookServerDeps): HookServer {
+/** Local HTTP endpoint for the hooks in claude-plugin/hooks/hooks.json and the module in claude-module/. Loopback only. */
+export function createHookServer({ onEvent, onModuleEvent, approvals, log }: HookServerDeps): HookServer {
 	const server = createServer((req, res) => {
 		handle(req, res).catch((error) => {
 			log(`hook request failed: ${error}`);
@@ -35,17 +37,27 @@ export function createHookServer({ onEvent, approvals, log }: HookServerDeps): H
 		if (req.method === "OPTIONS") return send(res, 405, {});
 		if (req.headers.origin !== undefined) return send(res, 403, {});
 		const name = req.url?.match(/^\/hook\/(\w+)$/)?.[1] as HookEventName | undefined;
-		if (req.method !== "POST" || !name || !HOOK_EVENTS.includes(name)) return send(res, 404, {});
+		const moduleName = req.url?.match(/^\/module\/([\w-]+)$/)?.[1] as ModuleEventName | undefined;
+		const known = (name && HOOK_EVENTS.includes(name)) || (moduleName && MODULE_EVENTS.includes(moduleName));
+		if (req.method !== "POST" || !known) return send(res, 404, {});
 		if (!req.headers["content-type"]?.toLowerCase().startsWith("application/json")) return send(res, 415, {});
 
 		const body = await readBody(req);
 		if (body === undefined) return send(res, 413, {});
-		let event: HookEvent;
+		let fields: Record<string, unknown>;
 		try {
-			event = { ...JSON.parse(body), hook_event_name: name };
+			fields = { ...JSON.parse(body) };
 		} catch {
 			return send(res, 400, {});
 		}
+
+		if (moduleName) {
+			if (typeof fields.sessionId !== "string") return send(res, 400, {});
+			onModuleEvent({ ...fields, name: moduleName } as unknown as ModuleEvent);
+			return send(res, 200, {});
+		}
+
+		const event = { ...fields, hook_event_name: name } as unknown as HookEvent;
 		if (typeof event.session_id !== "string" || typeof event.cwd !== "string") return send(res, 400, {});
 
 		if (name === "PermissionRequest") {

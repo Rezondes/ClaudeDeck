@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { HookEvent } from "./hook-event.js";
+import type { HookEvent, ModuleEvent } from "./hook-event.js";
 import { SessionStore, type SessionState } from "./session-store.js";
 
 function event(hook_event_name: HookEvent["hook_event_name"], extra: Partial<HookEvent> = {}): HookEvent {
@@ -414,5 +414,71 @@ describe("SessionStore", () => {
 		expect(store.get("s1")?.title).toBe("ClaudeDeck Plugin");
 		expect(store.get("s2")?.title).toBeUndefined();
 		expect(changed).toEqual(["s1"]);
+	});
+
+	it("tracks running turn, module context and rate limits", () => {
+		let now = 100;
+		const store = new SessionStore(() => now);
+		const mod = (name: ModuleEvent["name"], extra: Partial<ModuleEvent> = {}): ModuleEvent => ({ name, sessionId: "s1", ...extra });
+		const limits = [{ kind: "five_hour", percentUsed: 85, resetsAt: "2026-10-07T12:00:00Z" }];
+		const reported: unknown[] = [];
+		store.onRateLimits((rateLimits) => reported.push(rateLimits));
+
+		// Unknown session: nothing is created, but rate limits are global.
+		store.handleModule(mod("session-start", { cwd: "F:\\Code\\ClaudeDeck" }));
+		store.handleModule(mod("turn-start", { turnId: "t0" }));
+		store.handleModule(mod("usage", { context: { tokens: 1, window: 2, percent: 50 }, rateLimits: limits }));
+		expect(store.sessions()).toEqual([]);
+		expect(store.rateLimits()).toEqual({ limits, at: 100 });
+
+		store.handle(enter.working);
+		const changed: string[] = [];
+		store.onChange((id) => changed.push(id));
+		store.handleModule(mod("turn-start", { turnId: "t1" }));
+		expect(store.get("s1")?.runningTurnId).toBe("t1");
+		expect(store.get("s1")?.moduleContext).toBeUndefined();
+
+		now = 200;
+		store.handleModule(mod("usage", { context: { tokens: 92399, window: 1000000, percent: 9 }, rateLimits: [] }));
+		store.handleModule(mod("usage", { context: { tokens: 92400, window: 1000000, percent: 9 } }));
+		expect(store.get("s1")?.moduleContext).toEqual({ tokens: 92400, window: 1000000, percent: 9 });
+		expect(store.rateLimits()).toEqual({ limits, at: 100 }); // empty or missing lists do not erase known limits
+		expect(reported).toEqual([{ limits, at: 100 }]);
+		expect(changed).toEqual(["s1"]); // percent changed once; turn id and token count alone do not redraw
+
+		store.handle(event("Stop"));
+		expect(store.get("s1")?.runningTurnId).toBeUndefined();
+		expect(store.get("s1")?.moduleContext).toEqual({ tokens: 92400, window: 1000000, percent: 9 });
+	});
+
+	it("keeps a turn id that arrives before the session's first hook event", () => {
+		const store = new SessionStore(() => 0);
+		store.handleModule({ name: "turn-start", sessionId: "s1", turnId: "t1" });
+		store.handleModule({ name: "turn-start", sessionId: "seeded", turnId: "t2" });
+		store.handleModule({ name: "turn-start", sessionId: "done", turnId: "t3" });
+		store.handleModule({ name: "usage", sessionId: "done" }); // its turn completed before any hook event
+		expect(store.sessions()).toEqual([]);
+
+		store.handle(enter.working);
+		store.seed([
+			{ sessionId: "seeded", cwd: "F:/Code/x", transcriptPath: "x.jsonl", lastActivityAt: 0 },
+			{ sessionId: "done", cwd: "F:/Code/y", transcriptPath: "y.jsonl", lastActivityAt: 0 },
+		]);
+		expect(store.get("s1")?.runningTurnId).toBe("t1");
+		expect(store.get("seeded")?.runningTurnId).toBe("t2");
+		expect(store.get("done")?.runningTurnId).toBeUndefined();
+
+		// Applied once: a later session with the same id starts without it.
+		store.remove("s1");
+		store.handle(enter.working);
+		expect(store.get("s1")?.runningTurnId).toBeUndefined();
+	});
+
+	it("module usage ends the running turn, also for aborted turns without Stop", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(enter.working);
+		store.handleModule({ name: "turn-start", sessionId: "s1", turnId: "t1" });
+		store.handleModule({ name: "usage", sessionId: "s1", rateLimits: [] });
+		expect(store.get("s1")?.runningTurnId).toBeUndefined();
 	});
 });

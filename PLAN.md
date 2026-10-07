@@ -1154,7 +1154,7 @@ Der Spike (Package 20) hat gezeigt: Ein Modul lädt in CLI und Desktop, erreicht
 - [ ] AC1: Das Modul sendet `session.start` (Session-ID, `cwd`), `turn.start` (`turnId`) und nach `turn.complete` die Usage (`context`, `rateLimits`) an `http://127.0.0.1:37419/module/<event>`.
 - [ ] AC2: Fehler beim Senden (Plugin aus) bleiben folgenlos: keine Exception, keine Meldung im Transkript, die Session läuft normal weiter.
 - [ ] AC3: Der Hook-Server nimmt `/module/session-start`, `/module/turn-start` und `/module/usage` an (gleiche Prüfungen wie `/hook/*`) und reicht sie an den Session-Store weiter.
-- [ ] AC4: Der Session-Store merkt sich pro Session `runningTurnId` (gesetzt bei `turn-start`, gelöscht bei `Stop`), `contextPercent` aus dem Modul und die zuletzt gemeldeten Rate Limits (global, nicht pro Session).
+- [ ] AC4: Der Session-Store merkt sich pro Session `runningTurnId` (gesetzt bei `turn-start`, gelöscht bei `Stop` und bei Modul-`usage`, also auch bei abgebrochenen Turns; ein `turn-start` vor dem ersten Hook-Event wird vorgemerkt), `moduleContext` (`{ percent, window, tokens }`) aus dem Modul und die zuletzt gemeldeten Rate Limits (global, nicht pro Session).
 - [ ] AC5: `claude plugin validate claude-module` ist grün; ein `claude plugin test`-Test prüft, dass das Modul bei `session.start` und `turn.complete` die erwarteten Requests absetzt.
 
 ### Tests (TDD)

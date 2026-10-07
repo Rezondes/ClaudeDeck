@@ -1,4 +1,4 @@
-import type { HookEventName } from "../server/hook-contract.js";
+import type { HookEventName, ModuleEventName } from "../server/hook-contract.js";
 
 /** Fields of a Claude Code hook payload that ClaudeDeck reads (docs/spike-results.md, AC5). */
 export interface HookEvent {
@@ -14,4 +14,18 @@ export interface HookEvent {
 	notification_type?: string;
 	/** Stop only: background agents/tasks still running when the main agent's turn ended. */
 	background_tasks?: unknown[];
+}
+
+/** Fields the plugin module (claude-module/hooks/register.ts) posts; only sessionId is checked by the hook server. */
+export interface ModuleEvent {
+	name: ModuleEventName;
+	sessionId: string;
+	/** session-start */
+	cwd?: string;
+	/** turn-start */
+	turnId?: string;
+	/** usage: $.session.usage().context */
+	context?: { tokens?: number; window?: number; percent?: number };
+	/** usage: $.session.usage().rateLimits, e.g. { kind: "five_hour", percentUsed: 85, resetsAt } */
+	rateLimits?: unknown[];
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { APPROVAL_TIMEOUT_SECONDS, HOOK_BASE_URL, HOOK_EVENTS } from "../src/server/hook-contract";
+import { APPROVAL_TIMEOUT_SECONDS, HOOK_BASE_URL, HOOK_EVENTS, MODULE_BASE_URL, MODULE_EVENTS } from "../src/server/hook-contract";
 
 const readJson = (path: string) => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
 const hooks = readJson("claude-plugin/hooks/hooks.json").hooks;
@@ -44,5 +44,11 @@ describe("claude code plugin", () => {
 		expect(marketplace.plugins).toHaveLength(1);
 		expect(marketplace.plugins[0].name).toBe(plugin.name);
 		expect(marketplace.plugins[0].source).toBe("./claude-plugin");
+	});
+
+	it("the plugin module posts to the module endpoints of the shared contract", () => {
+		const source = readFileSync(new URL("../claude-module/hooks/register.ts", import.meta.url), "utf8");
+		expect(source).toContain(`'${MODULE_BASE_URL}'`);
+		for (const event of MODULE_EVENTS) expect(source).toContain(`'${event}'`);
 	});
 });

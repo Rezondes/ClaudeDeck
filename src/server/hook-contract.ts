@@ -15,5 +15,11 @@ export const HOOK_EVENTS = [
 
 export type HookEventName = (typeof HOOK_EVENTS)[number];
 
+/** Contract with the plugin module (claude-module/hooks/register.ts), which posts to MODULE_BASE_URL/<event>. */
+export const MODULE_BASE_URL = `http://127.0.0.1:${HOOK_PORT}/module`;
+export const MODULE_EVENTS = ["session-start", "turn-start", "usage"] as const;
+
+export type ModuleEventName = (typeof MODULE_EVENTS)[number];
+
 /** Seconds the server holds a PermissionRequest before it falls back to the normal prompt. */
 export const APPROVAL_TIMEOUT_SECONDS = 60;
