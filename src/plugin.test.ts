@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const manifest = JSON.parse(readFileSync(new URL("../com.claudedeck.streamdeck.sdPlugin/manifest.json", import.meta.url), "utf8"));
@@ -8,6 +8,18 @@ describe("manifest", () => {
 		const uuids = manifest.Actions.map((a: { UUID: string }) => a.UUID);
 		for (const name of ["allow", "always", "deny", "status", "mode"]) {
 			expect(uuids).toContain(`com.claudedeck.streamdeck.${name}`);
+		}
+	});
+
+	it("manifest declares window actions", () => {
+		for (const [name, label] of [["window", "Claude Window"], ["maximize", "Claude Maximize"]]) {
+			const action = manifest.Actions.find((a: { UUID: string }) => a.UUID === `com.claudedeck.streamdeck.${name}`);
+			expect(action?.Name).toBe(label);
+			expect(action?.Icon).toBe(`imgs/actions/${name}/icon`);
+			expect(action?.States[0].Image).toBe(`imgs/actions/${name}/key`);
+			for (const file of ["icon.png", "icon@2x.png", "key.png", "key@2x.png"]) {
+				expect(existsSync(new URL(`../com.claudedeck.streamdeck.sdPlugin/imgs/actions/${name}/${file}`, import.meta.url))).toBe(true);
+			}
 		}
 	});
 

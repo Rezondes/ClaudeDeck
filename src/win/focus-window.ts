@@ -8,16 +8,36 @@ export type RunFile = (file: string, args: string[]) => Promise<string>;
 
 const runFile: RunFile = async (file, args) => (await promisify(execFile)(file, args, { windowsHide: true, timeout: 5000 })).stdout;
 
+export type WindowVerb = "minimize" | "maximize" | "restore";
+const VERBS: readonly string[] = ["minimize", "maximize", "restore"] satisfies WindowVerb[];
+
+export interface WindowState {
+	minimized: boolean;
+	maximized: boolean;
+}
+
+function handle(hwnd: number): string {
+	if (!Number.isInteger(hwnd)) throw new Error(`invalid window handle: ${hwnd}`);
+	return String(hwnd);
+}
+
 // ponytail: one PowerShell start per call (~0.5 s); a native FFI binding (koffi) if that ever feels slow.
 export function createWindowHelper(scriptPath: string, run: RunFile = runFile) {
 	const ps = (...args: string[]) => run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath, ...args]);
 	return {
+		async windowState(hwnd: number): Promise<WindowState> {
+			return JSON.parse(await ps("-State", "-Hwnd", handle(hwnd)));
+		},
+		/** restore and maximize also bring the window to the foreground. */
+		async setWindow(hwnd: number, verb: WindowVerb): Promise<void> {
+			if (!VERBS.includes(verb)) throw new Error(`invalid window command: ${verb}`);
+			await ps("-Window", verb, "-Hwnd", handle(hwnd));
+		},
 		async list(): Promise<WindowInfo[]> {
 			return JSON.parse(await ps("-List"));
 		},
 		async focus(hwnd: number): Promise<void> {
-			if (!Number.isInteger(hwnd)) throw new Error(`invalid window handle: ${hwnd}`);
-			await ps("-Focus", String(hwnd));
+			await ps("-Focus", handle(hwnd));
 		},
 	};
 }

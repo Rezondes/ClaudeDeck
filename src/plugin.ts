@@ -5,6 +5,7 @@ import { DecisionKeys } from "./actions/decision-action.js";
 import { KeyAdapter } from "./actions/key-adapter.js";
 import { ModeKeys, type ModeSettings } from "./actions/mode-action.js";
 import { StatusKeys, type StatusSettings } from "./actions/status-action.js";
+import { WindowKeys } from "./actions/window-action.js";
 import { readContextUsage } from "./domain/context-usage.js";
 import { SessionStore } from "./domain/session-store.js";
 import type { DecisionKind } from "./render/decision-key.js";
@@ -51,6 +52,11 @@ const focusProject = async (project: string) => {
 		return false;
 	}
 };
+for (const kind of ["window", "maximize"] as const) {
+	const keys = new WindowKeys(kind, windows, (message) => log.error(message));
+	streamDeck.actions.registerAction(new KeyAdapter(`com.claudedeck.streamdeck.${kind}`, keys));
+}
+
 const statusKeys = new StatusKeys(store, readContextUsage, Date.now, focusProject);
 streamDeck.actions.registerAction(
 	new KeyAdapter("com.claudedeck.streamdeck.status", {
