@@ -47,6 +47,11 @@ function normalizeCwd(cwd: string): string {
 	return cwd.replaceAll("/", "\\").replace(/\\+$/, "").toLowerCase();
 }
 
+/** Last segment of a path, e.g. "F:\Code\ClaudeDeck\" gives "ClaudeDeck". */
+export function projectNameOf(cwd: string): string {
+	return cwd.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "";
+}
+
 /** Translates hook events into one state per Claude Code session. Pure domain, no IO. */
 export class SessionStore {
 	readonly #sessions = new Map<string, Session>();
@@ -85,7 +90,7 @@ export class SessionStore {
 				baseState: "idle",
 				pendingApprovals: 0,
 				cwd: event.cwd,
-				projectName: event.cwd.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "",
+				projectName: projectNameOf(event.cwd),
 				transcriptPath: event.transcript_path,
 				lastEventAt: 0,
 			};

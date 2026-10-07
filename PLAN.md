@@ -149,7 +149,7 @@ Das Projekt ist leer. Das Stream Deck CLI ist nicht installiert. Das offizielle 
 
 - [ ] AC1: `npm run build` erzeugt `com.claudedeck.streamdeck.sdPlugin/bin/plugin.js` ohne Fehler.
 - [ ] AC2: `npm test` läuft durch und führt mindestens einen Test aus.
-- [ ] AC3: `streamdeck link com.claudedeck.streamdeck.sdPlugin` ist erfolgt. Nach `streamdeck restart com.claudedeck.streamdeck` erscheint "ClaudeDeck" mit allen sechs Actions in der Stream Deck App (manueller Check).
+- [ ] AC3: `streamdeck link com.claudedeck.streamdeck.sdPlugin` ist erfolgt. Nach `npm run reload` erscheint "ClaudeDeck" mit allen sechs Actions in der Stream Deck App (manueller Check).
 - [ ] AC4: `manifest.json` deklariert `"OS": [{ "Platform": "windows", "MinimumVersion": "10" }]` und `"Software": { "MinimumVersion": "7.1" }` (SDK 3 des `@elgato/streamdeck`-Pakets verlangt 7.1).
 - [ ] AC5: `.gitignore` enthält `node_modules/`, `*.sdPlugin/bin/`, `*.log`, `.claude-flow/`, `.swarm/`, `ruvector.db` (bereits vor Package 0 angelegt).
 
@@ -163,7 +163,7 @@ Testbefehl: `npm test` (wird in diesem Package als `vitest run` angelegt)
 
 ### Umsetzungsschritte
 
-1. `npm i -D @elgato/cli` (lokal statt global, Aufruf per `npx streamdeck`, `npm run link`, `npm run restart`).
+1. `npm i -D @elgato/cli` (lokal statt global, Aufruf per `npx streamdeck`, `npm run link`, `npm run reload`; `streamdeck restart` startet das Plugin nicht zuverlässig neu, `reload` beendet den Plugin-Prozess und Stream Deck startet ihn nach etwa 10 s neu).
 2. Dateien aus `node_modules/@elgato/cli/template` von Hand übernehmen (`streamdeck create` ist interaktiv), UUID `com.claudedeck.streamdeck`.
 3. `npm i -D vitest`, Script `"test": "vitest run"` ergänzen.
 4. Test schreiben, rot sehen (Actions fehlen im Manifest).
@@ -546,7 +546,7 @@ Testbefehl: `npm test`
 1. `KeyView`-Schnittstelle und Fake für Tests definieren.
 2. Tests 1 bis 7 in TDD-Reihenfolge.
 3. In `src/plugin.ts` drei Actions mit `@action({ UUID })` registrieren, die dieselbe Klasse mit unterschiedlichem `kind` nutzen.
-4. `npm run build`, `streamdeck restart com.claudedeck.streamdeck`, manueller Check AC8.
+4. `npm run build`, `npm run reload`, manueller Check AC8.
 
 ### Out of Scope
 

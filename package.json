@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "build": "rollup -c",
-    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.claudedeck.streamdeck\"",
+    "watch": "rollup -c -w --watch.onEnd=\"npm run reload\"",
     "test": "vitest run",
     "link": "streamdeck link com.claudedeck.streamdeck.sdPlugin",
-    "restart": "streamdeck restart com.claudedeck.streamdeck"
+    "reload": "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*com.claudedeck.streamdeck.sdPlugin*' } | ForEach-Object { Stop-Process -Id $_.ProcessId }\""
   },
   "dependencies": {
     "@elgato/streamdeck": "^3.0.1"
