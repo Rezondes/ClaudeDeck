@@ -372,10 +372,10 @@ describe("StatusKeys", () => {
 		});
 
 		it("derives transcript path from cwd and cli session id", () => {
-			const projects = path.join("C:\\Users\\Steven Richter", ".claude", "projects");
-			expect(transcriptPathFor("F:\\Code\\ClaudeDeck", "abc", "C:\\Users\\Steven Richter")).toBe(path.join(projects, "F--Code-ClaudeDeck", "abc.jsonl"));
-			expect(transcriptPathFor("C:\\Users\\Steven Richter\\AppData\\Local\\Temp\\cdspike", "abc", "C:\\Users\\Steven Richter")).toBe(
-				path.join(projects, "C--Users-Steven-Richter-AppData-Local-Temp-cdspike", "abc.jsonl"),
+			const projects = path.join("C:\\Users\\Jane Doe", ".claude", "projects");
+			expect(transcriptPathFor("F:\\Code\\ClaudeDeck", "abc", "C:\\Users\\Jane Doe")).toBe(path.join(projects, "F--Code-ClaudeDeck", "abc.jsonl"));
+			expect(transcriptPathFor("C:\\Users\\Jane Doe\\AppData\\Local\\Temp\\cdspike", "abc", "C:\\Users\\Jane Doe")).toBe(
+				path.join(projects, "C--Users-Jane-Doe-AppData-Local-Temp-cdspike", "abc.jsonl"),
 			);
 		});
 

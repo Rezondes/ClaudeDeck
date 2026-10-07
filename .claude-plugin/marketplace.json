@@ -1,7 +1,7 @@
 {
 	"name": "claudedeck",
 	"owner": {
-		"name": "Steven Richter"
+		"name": "Rezondes"
 	},
 	"metadata": {
 		"description": "ClaudeDeck: Claude Code permission prompts and session status on your Elgato Stream Deck"
