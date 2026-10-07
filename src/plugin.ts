@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { DecisionKeys } from "./actions/decision-action.js";
 import { KeyAdapter } from "./actions/key-adapter.js";
+import { ModeKeys, type ModeSettings } from "./actions/mode-action.js";
 import { StatusKeys, type StatusSettings } from "./actions/status-action.js";
 import { readContextUsage } from "./domain/context-usage.js";
 import { SessionStore } from "./domain/session-store.js";
@@ -27,6 +28,16 @@ const decisionKeys = (["allow", "always", "deny"] as DecisionKind[]).map((kind) 
 	streamDeck.actions.registerAction(new KeyAdapter(`com.claudedeck.streamdeck.${kind}`, keys));
 	return keys;
 });
+
+const modeKeys = new ModeKeys(approvals, store);
+streamDeck.actions.registerAction(
+	new KeyAdapter("com.claudedeck.streamdeck.mode", {
+		appear: (view, ev) => modeKeys.appear(view, ev.payload.settings as ModeSettings),
+		disappear: (id) => modeKeys.disappear(id),
+		press: (view) => modeKeys.press(view),
+		settingsChanged: (id, settings) => modeKeys.settingsChanged(id, settings as ModeSettings),
+	}),
+);
 
 const windows = createWindowHelper(fileURLToPath(new URL("../scripts/focus-window.ps1", import.meta.url)));
 const focusProject = async (project: string) => {
@@ -54,6 +65,7 @@ const server = createHookServer({
 	onEvent: (event) => {
 		store.handle(event);
 		statusKeys.hookEvent(event);
+		modeKeys.renderAll(); // "most recently active session" can change without a state change
 	},
 	approvals,
 	log: (message) => log.error(message),
