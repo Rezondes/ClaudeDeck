@@ -35,6 +35,21 @@ describe("window helper", () => {
 		expect(run).not.toHaveBeenCalled();
 	});
 
+	it("opens a desktop session by validated local id", async () => {
+		const run = vi.fn(async () => "");
+		await createWindowHelper("s.ps1", run).openDesktopSession("local_ab-12");
+		expect(run).toHaveBeenCalledWith("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "s.ps1", "-OpenSession", "local_ab-12"]);
+	});
+
+	it("refuses invalid local ids", async () => {
+		const run = vi.fn(async () => "");
+		const helper = createWindowHelper("s.ps1", run);
+		for (const id of ["", "local_", "abc", "local_a&b=c", "local_a b", "local_x\n", `local_${"a".repeat(65)}`, "-Focus 1"]) {
+			await expect(helper.openDesktopSession(id)).rejects.toThrow();
+		}
+		expect(run).not.toHaveBeenCalled();
+	});
+
 	it("parses the window list", async () => {
 		const run = vi.fn(async () => '[{"hwnd":1,"processName":"claude","title":"Claude","path":"C:\\\\x"}]\r\n');
 		expect(await createWindowHelper("s.ps1", run).list()).toEqual([{ hwnd: 1, processName: "claude", title: "Claude", path: "C:\\x" }]);

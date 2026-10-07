@@ -52,6 +52,8 @@ export class StatusKeys {
 	readonly #renderedSlot = new Map<string, number>();
 	readonly #flashTimers = new Map<string, ReturnType<typeof setInterval>>();
 	readonly #flashOn = new Map<string, boolean>();
+	/** cliSessionId -> Desktop local id, from the last catalog read. */
+	#localIds = new Map<string, string>();
 
 	constructor(
 		private readonly store: SessionStore,
@@ -61,6 +63,8 @@ export class StatusKeys {
 		private readonly focusProject: (project: string) => Promise<boolean> = async () => false,
 		/** Desktop session catalog, used to fill keys before a session sends its first hook event. */
 		private readonly listDesktopSessions: () => Promise<DesktopSession[]> = async () => [],
+		/** Opens a Desktop session by its local id; resolves false when that did not work. */
+		private readonly openSession: (localId: string) => Promise<boolean> = async () => false,
 	) {
 		store.onChange((sessionId) => this.#sessionChanged(sessionId));
 		setInterval(() => void this.seed(), SEED_INTERVAL_MS);
@@ -83,6 +87,7 @@ export class StatusKeys {
 		} catch {
 			return;
 		}
+		this.#localIds = new Map(catalog.map((s) => [s.cliSessionId, s.localId]));
 		const selected = sessionsToSeed(catalog, [...this.#pins.values()].map((pin) => pin.cwd), this.now());
 		// Idle catalog sessions that left the selection (aged out, archived, unpinned) free their slot; CLI sessions are not in the catalog.
 		const keep = new Set(selected.map((s) => s.cliSessionId));
@@ -124,9 +129,12 @@ export class StatusKeys {
 		const session = this.sessionOf(view);
 		if (!session) return;
 		this.store.keyPressed(session.id);
-		this.focusProject(session.projectName)
-			.catch(() => false)
-			.then((focused) => focused || view.showAlert())
+		const localId = this.#localIds.get(session.id);
+		const attempt = (show: () => Promise<boolean>) => show().catch(() => false);
+		const focus = () => attempt(() => this.focusProject(session.projectName));
+		// Deep link first for Desktop sessions, window focus as fallback (and for CLI sessions); alert only when both fail.
+		(localId ? attempt(() => this.openSession(localId)).then((opened) => opened || focus()) : focus())
+			.then((shown) => shown || view.showAlert())
 			.catch(() => {});
 	}
 

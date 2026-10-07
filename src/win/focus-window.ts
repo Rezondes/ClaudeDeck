@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { LOCAL_ID } from "../desktop/session-catalog.js";
 import type { WindowInfo } from "./window-match.js";
 
 /** Runs a program with an argument array (never through a shell) and resolves its stdout. */
@@ -38,6 +39,11 @@ export function createWindowHelper(scriptPath: string, run: RunFile = runFile) {
 		},
 		async focus(hwnd: number): Promise<void> {
 			await ps("-Focus", handle(hwnd));
+		},
+		/** Opens claude://code/continue for this session and brings the Desktop window forward. */
+		async openDesktopSession(localId: string): Promise<void> {
+			if (!LOCAL_ID.test(localId)) throw new Error(`invalid desktop session id: ${JSON.stringify(localId)}`);
+			await ps("-OpenSession", localId);
 		},
 	};
 }

@@ -219,6 +219,58 @@ describe("StatusKeys", () => {
 		await vi.waitFor(() => expect(k0.showAlert).toHaveBeenCalledOnce());
 	});
 
+	describe("press with the Desktop catalog", () => {
+		const catalog = async (): Promise<DesktopSession[]> => [
+			{ localId: "local_api-1", cliSessionId: "api", cwd: "F:\\Code\\api", title: "", lastActivityAt: 0, archived: true },
+		];
+
+		const flush = async () => {
+			for (let i = 0; i < 10; i++) await Promise.resolve();
+		};
+
+		/** Presses the key of `sessionId` after one catalog read; the catalog marks "api" archived, so it is mapped but not seeded. */
+		async function pressSession(sessionId: string, open: (localId: string) => Promise<boolean>, focus: (project: string) => Promise<boolean>) {
+			const openSession = vi.fn(open);
+			const focusProject = vi.fn(focus);
+			const store = new SessionStore(() => 0);
+			const keys = new StatusKeys(store, async () => null, () => 0, focusProject, catalog, openSession);
+			const k0 = view("k0");
+			keys.appear(k0, { column: 0, row: 0 }, {});
+			await keys.seed();
+			store.handle(event("Stop", sessionId));
+			keys.press(k0);
+			const state = store.get(sessionId)?.state;
+			await flush();
+			return { openSession, focusProject, alert: k0.showAlert, state };
+		}
+
+		it("press opens desktop session when known", async () => {
+			const { openSession, focusProject, alert, state } = await pressSession("api", async () => true, async () => true);
+			expect(state).toBe("idle");
+			expect(openSession).toHaveBeenCalledWith("local_api-1");
+			expect(focusProject).not.toHaveBeenCalled();
+			expect(alert).not.toHaveBeenCalled();
+		});
+
+		it("press falls back to window focus", async () => {
+			const failed = await pressSession("api", async () => false, async () => true);
+			expect(failed.focusProject).toHaveBeenCalledWith("api");
+			expect(failed.alert).not.toHaveBeenCalled();
+
+			const threw = await pressSession("api", () => Promise.reject(new Error("no desktop")), async () => true);
+			expect(threw.focusProject).toHaveBeenCalledWith("api");
+			expect(threw.alert).not.toHaveBeenCalled();
+
+			const both = await pressSession("api", async () => false, async () => false);
+			expect(both.alert).toHaveBeenCalledOnce();
+
+			// A session the catalog does not know (CLI) never tries the deep link.
+			const cli = await pressSession("cli", async () => true, async () => true);
+			expect(cli.openSession).not.toHaveBeenCalled();
+			expect(cli.focusProject).toHaveBeenCalledWith("cli");
+		});
+	});
+
 	it("press on an empty key does nothing", () => {
 		const { keys } = setup();
 		const k0 = view("k0");

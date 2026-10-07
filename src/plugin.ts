@@ -53,12 +53,21 @@ const focusProject = async (project: string) => {
 		return false;
 	}
 };
+const openSession = async (localId: string) => {
+	try {
+		await windows.openDesktopSession(localId);
+		return true;
+	} catch (error) {
+		log.error(`opening desktop session ${localId} failed: ${error}`);
+		return false;
+	}
+};
 for (const kind of ["window", "maximize"] as const) {
 	const keys = new WindowKeys(kind, windows, (message) => log.error(message));
 	streamDeck.actions.registerAction(new KeyAdapter(`com.claudedeck.streamdeck.${kind}`, keys));
 }
 
-const statusKeys = new StatusKeys(store, readContextUsage, Date.now, focusProject, () => readDesktopSessions());
+const statusKeys = new StatusKeys(store, readContextUsage, Date.now, focusProject, () => readDesktopSessions(), openSession);
 void statusKeys.seed();
 streamDeck.actions.registerAction(
 	new KeyAdapter("com.claudedeck.streamdeck.status", {

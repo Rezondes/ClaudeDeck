@@ -11,7 +11,8 @@ export type DesktopSession = {
 	archived: boolean;
 };
 
-const LOCAL_ID = /^local_[A-Za-z0-9-]{1,64}$/;
+/** Desktop local session id, same rule as the Desktop claude:// URL handler. */
+export const LOCAL_ID = /^local_[A-Za-z0-9-]{1,64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // ponytail: hard cap on files read per scan; raise it or cache by mtime if someone really has more sessions.
 const MAX_FILES = 2000;
