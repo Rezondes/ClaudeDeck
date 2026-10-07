@@ -199,8 +199,8 @@ Mapping (endgültig anhand der Spike-Payloads):
 | erstes Event einer unbekannten Session (es gibt keinen `SessionStart`, HTTP-Hooks werden dafür nicht unterstützt, siehe Spike) | Session anlegen, Slot zuweisen, dann wie das Event selbst |
 | `UserPromptSubmit`, `PreToolUse` (außer `AskUserQuestion`), `PostToolUse` | `working` |
 | `PreToolUse` mit `tool_name == "AskUserQuestion"`, `Notification` vom Typ `elicitation_dialog` oder `agent_needs_input` | `input` |
-| `PermissionRequest` | `approval` |
-| Freigabe entschieden (intern vom Hook-Server) | `working` |
+| `PermissionRequest` | `approval` (Zähler `pendingApprovals` +1; Anzeige bleibt `approval`, solange der Zähler > 0 ist, auch wenn parallele Subagents derselben Session weitere Events senden) |
+| Freigabe entschieden, Timeout oder Abbruch (intern vom Hook-Server, `approvalDecided`) | Zähler -1, bei 0 der zuletzt aus Events abgeleitete Zustand |
 | `Stop` | `done` |
 | `done` und 10 min ohne Event, oder Key gedrückt | `idle` |
 | `SessionEnd` | Session entfernen, Slot frei |
@@ -330,7 +330,7 @@ Der Server läuft im Plugin-Prozess und lauscht nur auf `127.0.0.1`. Jeder Event
 ### Acceptance Criteria
 
 - [ ] AC1: Der Server bindet ausschließlich an `127.0.0.1:37419` (fester Port, siehe Annahmen).
-- [ ] AC2: Requests auf andere Pfade als `POST /hook/<Event>` oder mit ungültigem JSON-Body werden mit `404` bzw. `400` beantwortet und nicht an den Store weitergegeben. Bodies über 1 MiB werden mit `413` abgelehnt.
+- [ ] AC2: Requests auf andere Pfade als `POST /hook/<Event>` oder mit ungültigem JSON-Body werden mit `404` bzw. `400` beantwortet und nicht an den Store weitergegeben. Bodies über 1 MiB werden mit `413` abgelehnt. Payloads, in denen `session_id` oder `cwd` kein String ist, werden mit `400` abgelehnt (der Session-Store vertraut diesen Feldern).
 - [ ] AC2b: Requests mit `Origin`-Header oder mit einem anderen `Content-Type` als `application/json` werden mit `403` bzw. `415` abgelehnt und nicht an den Store weitergegeben. `OPTIONS`-Preflights bekommen `405` ohne CORS-Header.
 - [ ] AC3: Nicht-blockierende Events (`UserPromptSubmit`, `PreToolUse`, ...) werden sofort mit `200` und dem JSON-Body `{}` beantwortet und an den Store weitergegeben.
 - [ ] AC4: Ein `PermissionRequest` landet in der Warteschlange. Die Antwort kommt erst nach `approve()`, `approveAlways()`, `deny()` oder Timeout.
@@ -570,7 +570,7 @@ Testbefehl: `npm test`
 
 ### Kontext
 
-Wie beim Original gilt: So viele Status-Keys wie platziert, so viele Sessions werden angezeigt. Die Keys werden nach Position auf dem Gerät (Zeile, dann Spalte, aus `ev.action.coordinates`) sortiert und bekommen Slot 0, 1, 2, ... Der Session-Store (Package 2) ordnet Sessions den Slots zu. Ein Key ohne Session zeigt einen leeren, dunklen Zustand. `approval` und `input` blinken (Wechsel zwischen Normal- und Flash-Frame alle 500 ms). Die Kontext-Prozente werden nach `PostToolUse`, `Stop` und `UserPromptSubmit` neu gelesen (Package 3), höchstens einmal pro 2 s pro Session. Der Property Inspector bietet "An Projektordner binden" (Pfad-Eingabe).
+Wie beim Original gilt: So viele Status-Keys wie platziert, so viele Sessions werden angezeigt. Die Keys werden nach Position auf dem Gerät (Zeile, dann Spalte, aus `ev.action.coordinates`) sortiert und bekommen Slot 0, 1, 2, ... Der Session-Store (Package 2) ordnet Sessions den Slots zu. Ein Key ohne Session zeigt einen leeren, dunklen Zustand. `approval` und `input` blinken (Wechsel zwischen Normal- und Flash-Frame alle 500 ms). Die Kontext-Prozente werden nach `PostToolUse`, `Stop` und `UserPromptSubmit` neu gelesen (Package 3), höchstens einmal pro 2 s pro Session. Dafür braucht der Status-Key die rohen Events vom Hook-Server (der `onChange` des Stores feuert nur bei Zustandsänderungen). Liefert `readContextUsage` `null`, bleibt der letzte Wert stehen. Der Store bekommt hier einen Zugriff auf alle Sessions (`sessions()`). Pins müssen vor dem Start des Hook-Servers gesetzt werden, oder `setPins` ordnet laufende Sessions neu zu (Hinweis aus dem Review von Package 2). Der Property Inspector bietet "An Projektordner binden" (Pfad-Eingabe).
 
 ### Acceptance Criteria
 
