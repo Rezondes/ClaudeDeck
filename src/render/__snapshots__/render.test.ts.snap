@@ -1,0 +1,146 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`render > decision key idle vs pending > allow idle 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#0B0C0E" stroke="#2FBF5B" stroke-width="3" stroke-opacity="0.6"/>
+<polyline class="check" transform="translate(72 56)" points="-16,0 -5,11 16,-12" fill="none" stroke="#2FBF5B" stroke-opacity="0.55" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="102" text-anchor="middle" font-size="20" font-weight="600" fill="#2FBF5B" fill-opacity="0.55">Allow</text>
+</svg>"
+`;
+
+exports[`render > decision key idle vs pending > allow pending 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#2FBF5B"/>
+<polyline class="check" transform="translate(72 40)" points="-16,0 -5,11 16,-12" fill="none" stroke="#FFFFFF" stroke-opacity="1" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="80" text-anchor="middle" font-size="20" font-weight="700" fill="#FFFFFF">Allow</text>
+<text x="72" y="104" text-anchor="middle" font-size="14" fill="#FFFFFF">Bash npm test</text>
+</svg>"
+`;
+
+exports[`render > decision key idle vs pending > always idle 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#0B0C0E" stroke="#F5C518" stroke-width="3" stroke-opacity="0.6"/>
+<polyline class="check" transform="translate(54 56)" points="-16,0 -5,11 16,-12" fill="none" stroke="#F5C518" stroke-opacity="0.55" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><text x="92" y="68" text-anchor="middle" font-size="36" font-weight="700" fill="#F5C518" fill-opacity="0.55">∞</text>
+<text x="72" y="102" text-anchor="middle" font-size="20" font-weight="600" fill="#F5C518" fill-opacity="0.55">Always</text>
+</svg>"
+`;
+
+exports[`render > decision key idle vs pending > always pending 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#F5C518"/>
+<polyline class="check" transform="translate(54 40)" points="-16,0 -5,11 16,-12" fill="none" stroke="#1A1A1A" stroke-opacity="1" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><text x="92" y="52" text-anchor="middle" font-size="36" font-weight="700" fill="#1A1A1A" fill-opacity="1">∞</text>
+<text x="72" y="80" text-anchor="middle" font-size="20" font-weight="700" fill="#1A1A1A">Always</text>
+<text x="72" y="104" text-anchor="middle" font-size="14" fill="#1A1A1A">Bash npm test</text>
+</svg>"
+`;
+
+exports[`render > decision key idle vs pending > deny idle 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#0B0C0E" stroke="#E5484D" stroke-width="3" stroke-opacity="0.6"/>
+<path class="cross" transform="translate(72 56)" d="M-13,-13 L13,13 M13,-13 L-13,13" fill="none" stroke="#E5484D" stroke-opacity="0.55" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="102" text-anchor="middle" font-size="20" font-weight="600" fill="#E5484D" fill-opacity="0.55">Deny</text>
+</svg>"
+`;
+
+exports[`render > decision key idle vs pending > deny pending 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#E5484D"/>
+<path class="cross" transform="translate(72 40)" d="M-13,-13 L13,13 M13,-13 L-13,13" fill="none" stroke="#FFFFFF" stroke-opacity="1" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="80" text-anchor="middle" font-size="20" font-weight="700" fill="#FFFFFF">Deny</text>
+<text x="72" y="104" text-anchor="middle" font-size="14" fill="#FFFFFF">Bash npm test</text>
+</svg>"
+`;
+
+exports[`render > decision key shows project line and escapes 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#2FBF5B"/>
+<polyline class="check" transform="translate(72 40)" points="-16,0 -5,11 16,-12" fill="none" stroke="#FFFFFF" stroke-opacity="1" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="80" text-anchor="middle" font-size="20" font-weight="700" fill="#FFFFFF">Allow</text>
+<text x="72" y="104" text-anchor="middle" font-size="14" fill="#FFFFFF">Bash a&lt;b</text>
+<text x="72" y="124" text-anchor="middle" font-size="14" fill="#FFFFFF" fill-opacity="0.85">api-svc</text>
+</svg>"
+`;
+
+exports[`render > empty status key has no text 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#101216" stroke="#2A2D33" stroke-width="2"/>
+</svg>"
+`;
+
+exports[`render > status key renders each state (approval) 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<defs><radialGradient id="tint" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="#F5C518" stop-opacity="0.30"/><stop offset="1" stop-color="#F5C518" stop-opacity="0"/></radialGradient></defs>
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#101216"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="url(#tint)"/>
+<rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#F5C518" stroke-width="9" stroke-opacity="0.15"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#F5C518" stroke-width="6" stroke-opacity="0.3"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#F5C518" stroke-width="3" stroke-opacity="1"/>
+<text x="72" y="52" text-anchor="middle" font-size="17" font-weight="700" fill="#FFFFFF">ClaudeDeck</text>
+<text x="18" y="92" font-size="15" font-weight="600" fill="#F5C518">Approve</text>
+<text x="126" y="92" text-anchor="end" font-size="15" font-weight="600" fill="#2FBF5B">42%</text>
+<g id="bar"><rect x="18" y="104" width="108" height="8" rx="4" fill="#2A2D33"/><rect x="18" y="104" width="45.36" height="8" rx="4" fill="#2FBF5B"/></g>
+</svg>"
+`;
+
+exports[`render > status key renders each state (done) 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<defs><radialGradient id="tint" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="#2FBF5B" stop-opacity="0.30"/><stop offset="1" stop-color="#2FBF5B" stop-opacity="0"/></radialGradient></defs>
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#101216"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="url(#tint)"/>
+<rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#2FBF5B" stroke-width="9" stroke-opacity="0.15"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#2FBF5B" stroke-width="6" stroke-opacity="0.3"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#2FBF5B" stroke-width="3" stroke-opacity="1"/>
+<text x="72" y="52" text-anchor="middle" font-size="17" font-weight="700" fill="#FFFFFF">ClaudeDeck</text>
+<text x="18" y="92" font-size="15" font-weight="600" fill="#2FBF5B">Done</text>
+<text x="126" y="92" text-anchor="end" font-size="15" font-weight="600" fill="#2FBF5B">42%</text>
+<g id="bar"><rect x="18" y="104" width="108" height="8" rx="4" fill="#2A2D33"/><rect x="18" y="104" width="45.36" height="8" rx="4" fill="#2FBF5B"/></g>
+</svg>"
+`;
+
+exports[`render > status key renders each state (idle) 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<defs><radialGradient id="tint" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="#8A8F98" stop-opacity="0.30"/><stop offset="1" stop-color="#8A8F98" stop-opacity="0"/></radialGradient></defs>
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#101216"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="url(#tint)"/>
+<rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#8A8F98" stroke-width="9" stroke-opacity="0.15"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#8A8F98" stroke-width="6" stroke-opacity="0.3"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#8A8F98" stroke-width="3" stroke-opacity="1"/>
+<text x="72" y="52" text-anchor="middle" font-size="17" font-weight="700" fill="#FFFFFF">ClaudeDeck</text>
+<text x="18" y="92" font-size="15" font-weight="600" fill="#8A8F98">Idle</text>
+<text x="126" y="92" text-anchor="end" font-size="15" font-weight="600" fill="#2FBF5B">42%</text>
+<g id="bar"><rect x="18" y="104" width="108" height="8" rx="4" fill="#2A2D33"/><rect x="18" y="104" width="45.36" height="8" rx="4" fill="#2FBF5B"/></g>
+</svg>"
+`;
+
+exports[`render > status key renders each state (input) 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<defs><radialGradient id="tint" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="#B05CE6" stop-opacity="0.30"/><stop offset="1" stop-color="#B05CE6" stop-opacity="0"/></radialGradient></defs>
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#101216"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="url(#tint)"/>
+<rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#B05CE6" stroke-width="9" stroke-opacity="0.15"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#B05CE6" stroke-width="6" stroke-opacity="0.3"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#B05CE6" stroke-width="3" stroke-opacity="1"/>
+<text x="72" y="52" text-anchor="middle" font-size="17" font-weight="700" fill="#FFFFFF">ClaudeDeck</text>
+<text x="18" y="92" font-size="15" font-weight="600" fill="#B05CE6">Input</text>
+<text x="126" y="92" text-anchor="end" font-size="15" font-weight="600" fill="#2FBF5B">42%</text>
+<g id="bar"><rect x="18" y="104" width="108" height="8" rx="4" fill="#2A2D33"/><rect x="18" y="104" width="45.36" height="8" rx="4" fill="#2FBF5B"/></g>
+</svg>"
+`;
+
+exports[`render > status key renders each state (working) 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<defs><radialGradient id="tint" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="#2F7BFF" stop-opacity="0.30"/><stop offset="1" stop-color="#2F7BFF" stop-opacity="0"/></radialGradient></defs>
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#101216"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="url(#tint)"/>
+<rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#2F7BFF" stroke-width="9" stroke-opacity="0.15"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#2F7BFF" stroke-width="6" stroke-opacity="0.3"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#2F7BFF" stroke-width="3" stroke-opacity="1"/>
+<text x="72" y="52" text-anchor="middle" font-size="17" font-weight="700" fill="#FFFFFF">ClaudeDeck</text>
+<text x="18" y="92" font-size="15" font-weight="600" fill="#2F7BFF">Working</text>
+<text x="126" y="92" text-anchor="end" font-size="15" font-weight="600" fill="#2FBF5B">42%</text>
+<g id="bar"><rect x="18" y="104" width="108" height="8" rx="4" fill="#2A2D33"/><rect x="18" y="104" width="45.36" height="8" rx="4" fill="#2FBF5B"/></g>
+</svg>"
+`;
