@@ -2,6 +2,7 @@ import { createServer } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { HookEvent, ModuleEvent } from "../domain/hook-event.js";
+import { CommandQueue } from "./command-queue.js";
 import { createHookServer, type HookServer } from "./hook-server.js";
 import { PendingApprovals } from "./pending-approvals.js";
 
@@ -19,7 +20,9 @@ async function start() {
 	const onEvent = vi.fn<(event: HookEvent) => void>();
 	const onModuleEvent = vi.fn<(event: ModuleEvent) => void>();
 	const approvals = new PendingApprovals();
-	server = createHookServer({ onEvent, onModuleEvent, approvals, log: () => {} });
+	let now = 0;
+	const commands = new CommandQueue(() => now);
+	server = createHookServer({ onEvent, onModuleEvent, approvals, commands, log: () => {} });
 	expect(await server.listen(0)).toBe(true);
 	const base = `http://127.0.0.1:${server.port()}`;
 	const post = (path: string, body: unknown, headers: Record<string, string> = {}, signal?: AbortSignal) =>
@@ -29,7 +32,7 @@ async function start() {
 			body: typeof body === "string" ? body : JSON.stringify(body),
 			signal,
 		});
-	return { onEvent, onModuleEvent, approvals, base, post };
+	return { onEvent, onModuleEvent, approvals, commands, base, post, advance: (ms: number) => (now += ms) };
 }
 
 afterEach(async () => {
@@ -49,6 +52,14 @@ describe("hook server", () => {
 		expect((await post("/hook/Stop", payload(), { "content-type": "Application/JSON" })).status).toBe(200);
 		expect((await post("/hook/Stop", payload({ pad: "x".repeat(1024 * 1024) }))).status).toBe(413);
 		expect(onEvent).toHaveBeenCalledOnce(); // only the Application/JSON one
+	});
+
+	it("rejects anything a browser sends (Sec-Fetch-Site), including GET without Origin", async () => {
+		const { onEvent, base, post } = await start();
+		const fromPage = await post("/hook/Stop", payload(), { "sec-fetch-site": "cross-site" });
+		const drain = await fetch(`${base}/module/commands?session=s1`, { headers: { "sec-fetch-site": "cross-site" } });
+		expect([fromPage.status, drain.status]).toEqual([403, 403]);
+		expect(onEvent).not.toHaveBeenCalled();
 	});
 
 	it("rejects browser-style requests", async () => {
@@ -132,6 +143,34 @@ describe("hook server", () => {
 		expect(onEvent).not.toHaveBeenCalled();
 	});
 
+	it("serves commands per session and expires them", async () => {
+		const { commands, base, post, advance } = await start();
+		const get = (session: string, headers: Record<string, string> = {}) => fetch(`${base}/module/commands?session=${encodeURIComponent(session)}`, { headers });
+		const expired = vi.fn();
+		commands.add("s1", "t1", vi.fn());
+		commands.add("s2", "t2", expired);
+
+		expect(await (await get("s1")).json()).toEqual({ commands: [{ kind: "abort", turnId: "t1", at: 0 }] });
+		expect(await (await get("s1")).json()).toEqual({ commands: [] }); // delivered once
+
+		const rejected = [
+			await get("s2", { origin: "https://evil.example" }),
+			await post("/module/commands?session=s2", {}),
+			await fetch(`${base}/module/commands?session=s2`, { method: "OPTIONS" }),
+			await fetch(`${base}/module/commands`),
+			await get("x".repeat(101)),
+		];
+		expect(rejected.map((res) => res.status)).toEqual([403, 405, 405, 400, 400]);
+
+		advance(9_999);
+		commands.expire();
+		expect(expired).not.toHaveBeenCalled();
+		advance(1);
+		commands.expire();
+		expect(expired).toHaveBeenCalledOnce();
+		expect(await (await get("s2")).json()).toEqual({ commands: [] });
+	});
+
 	it("binds to loopback only", async () => {
 		await start();
 		expect(server?.address()).toBe("127.0.0.1");
@@ -142,7 +181,7 @@ describe("hook server", () => {
 		await new Promise<void>((resolve) => blocker.listen(0, "127.0.0.1", resolve));
 		const port = (blocker.address() as { port: number }).port;
 		const log = vi.fn();
-		server = createHookServer({ onEvent: vi.fn(), onModuleEvent: vi.fn(), approvals: new PendingApprovals(), log });
+		server = createHookServer({ onEvent: vi.fn(), onModuleEvent: vi.fn(), approvals: new PendingApprovals(), commands: new CommandQueue(Date.now), log });
 		expect(await server.listen(port)).toBe(false);
 		expect(log).toHaveBeenCalledWith(expect.stringContaining(String(port)));
 		await new Promise((resolve) => blocker.close(resolve));

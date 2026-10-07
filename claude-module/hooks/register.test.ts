@@ -1,5 +1,5 @@
 import type { On } from 'claude-code'
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
 const USAGE = {
 	startedAt: 0,
@@ -86,4 +86,63 @@ test('does not hold the turn while ClaudeDeck is slow', async ($, on) => {
 	engine(on)
 
 	expect(await $.turn.start({ text: 'hi', turnId: 't1' })).toEqual({ turnId: 't1' })
+})
+
+test('polls commands and aborts only the matching turn', async ($, on) => {
+	const clock = mock.clock(on)
+	const answers: string[][] = [['t0', 't1']]
+	const polls: string[] = []
+	on('http.fetch', async (_$, e) => {
+		if (!e.url.endsWith('/commands?session=s1')) return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
+		polls.push(e.url)
+		const commands = (answers.shift() ?? []).map(turnId => ({ kind: 'abort', turnId, at: 0 }))
+		return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ commands }) } }
+	})
+	const aborted: string[] = []
+	on('turn.abort', async (_$, e) => {
+		aborted.push(e.turnId)
+	})
+	engine(on)
+
+	await $.session.start({ cwd: 'F:/Code/ClaudeDeck', surface: null, isInteractive: false })
+	await $.turn.start({ text: 'hi', turnId: 't1' })
+	await clock.advance(999)
+	expect(polls).toEqual([])
+	await clock.advance(1)
+	expect(polls).toEqual(['http://127.0.0.1:37419/module/commands?session=s1'])
+	expect(aborted).toEqual(['t1'])
+
+	// After the turn ended there is nothing to interrupt: no polling while idle.
+	await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: true, turnId: 't1', reason: 'answer' })
+	answers.push(['t1'])
+	await clock.advance(1000)
+	expect(polls.length).toBe(1)
+
+	// A new turn polls again; the stale abort for t1 is ignored.
+	await $.turn.start({ text: 'again', turnId: 't2' })
+	await clock.advance(1000)
+	expect(polls.length).toBe(2)
+	expect(aborted).toEqual(['t1'])
+})
+
+test('ignores failing polls', async ($, on) => {
+	const clock = mock.clock(on)
+	let polls = 0
+	on('http.fetch', async (_$, e) => {
+		if (!e.url.includes('/commands')) return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
+		polls++
+		if (polls === 1) throw new Error('connect ECONNREFUSED 127.0.0.1:37419')
+		return { value: { status: 200, ok: true, headers: {}, text: 'not json' } }
+	})
+	engine(on)
+	const statuses: unknown[] = []
+	on('ui.status', async (_$, e) => {
+		statuses.push(e)
+	})
+
+	await $.session.start({ cwd: 'F:/Code/ClaudeDeck', surface: null, isInteractive: false })
+	await $.turn.start({ text: 'hi', turnId: 't1' })
+	await clock.advance(2000)
+	expect(polls).toBe(2)
+	expect(statuses).toEqual([])
 })

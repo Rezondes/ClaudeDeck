@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import type { HookEvent, ModuleEvent } from "../domain/hook-event.js";
+import type { CommandQueue } from "./command-queue.js";
 import { HOOK_EVENTS, MODULE_EVENTS, type HookEventName, type ModuleEventName } from "./hook-contract.js";
 import type { PendingApprovals, PermissionRequestEvent } from "./pending-approvals.js";
 
@@ -12,6 +13,8 @@ export interface HookServerDeps {
 	/** Every accepted POST /module/<event> from the plugin module. */
 	onModuleEvent: (event: ModuleEvent) => void;
 	approvals: PendingApprovals;
+	/** Served once each by GET /module/commands?session=<id>. */
+	commands: CommandQueue;
 	log: (message: string) => void;
 }
 
@@ -24,7 +27,7 @@ export interface HookServer {
 }
 
 /** Local HTTP endpoint for the hooks in claude-plugin/hooks/hooks.json and the module in claude-module/. Loopback only. */
-export function createHookServer({ onEvent, onModuleEvent, approvals, log }: HookServerDeps): HookServer {
+export function createHookServer({ onEvent, onModuleEvent, approvals, commands, log }: HookServerDeps): HookServer {
 	const server = createServer((req, res) => {
 		handle(req, res).catch((error) => {
 			log(`hook request failed: ${error}`);
@@ -36,6 +39,15 @@ export function createHookServer({ onEvent, onModuleEvent, approvals, log }: Hoo
 		// Browsers always send Origin and need a CORS preflight for JSON: reject both (PLAN.md, Package 4 AC2b).
 		if (req.method === "OPTIONS") return send(res, 405, {});
 		if (req.headers.origin !== undefined) return send(res, 403, {});
+		// Browsers always send Sec-Fetch-Site (also on no-cors GETs without Origin); Claude Code never does.
+		if (req.headers["sec-fetch-site"] !== undefined) return send(res, 403, {});
+		const url = new URL(req.url ?? "/", "http://127.0.0.1");
+		if (url.pathname === "/module/commands") {
+			if (req.method !== "GET") return send(res, 405, {});
+			const session = url.searchParams.get("session");
+			if (!session || session.length > 100) return send(res, 400, {});
+			return send(res, 200, { commands: commands.take(session) });
+		}
 		const name = req.url?.match(/^\/hook\/(\w+)$/)?.[1] as HookEventName | undefined;
 		const moduleName = req.url?.match(/^\/module\/([\w-]+)$/)?.[1] as ModuleEventName | undefined;
 		const known = (name && HOOK_EVENTS.includes(name)) || (moduleName && MODULE_EVENTS.includes(moduleName));

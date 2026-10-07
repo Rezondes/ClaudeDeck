@@ -21,6 +21,8 @@ export type ReadContext = (transcriptPath: string) => Promise<number | null>;
 const FLASH_MS = 500;
 const CONTEXT_THROTTLE_MS = 2000;
 const CONTEXT_EVENTS = new Set(["UserPromptSubmit", "PostToolUse", "Stop"]);
+/** Holding a status key this long aborts the session's running turn instead of opening it (PLAN.md, Package 27). */
+const LONG_PRESS_MS = 600;
 const SEED_INTERVAL_MS = 60_000;
 const SEED_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
@@ -52,6 +54,8 @@ export class StatusKeys {
 	readonly #renderedSlot = new Map<string, number>();
 	readonly #flashTimers = new Map<string, ReturnType<typeof setInterval>>();
 	readonly #flashOn = new Map<string, boolean>();
+	/** Key id -> when it went down, to tell a short press from a long one on release. */
+	readonly #downAt = new Map<string, number>();
 	/** cliSessionId -> Desktop local id, from the last catalog read. */
 	#localIds = new Map<string, string>();
 
@@ -67,6 +71,8 @@ export class StatusKeys {
 		private readonly openSession: (localId: string) => Promise<boolean> = async () => false,
 		/** Opens "Sessions Waiting for You" in Claude Desktop; resolves false when that did not work. */
 		private readonly openNeedsInput: () => Promise<boolean> = async () => false,
+		/** Queues an abort of the turn for the session's module; `onExpired` runs when no module fetched it. */
+		private readonly queueAbort: (sessionId: string, turnId: string, onExpired: () => void) => void = () => {},
 	) {
 		store.onChange((sessionId) => this.#sessionChanged(sessionId));
 		setInterval(() => void this.seed(), SEED_INTERVAL_MS);
@@ -127,6 +133,28 @@ export class StatusKeys {
 	}
 
 	press(view: KeyView): void {
+		this.#downAt.set(view.id, this.now());
+	}
+
+	/** Short press opens the session, long press aborts its running turn. */
+	release(view: KeyView): void {
+		const downAt = this.#downAt.get(view.id);
+		this.#downAt.delete(view.id);
+		if (downAt === undefined) return;
+		if (this.now() - downAt >= LONG_PRESS_MS) this.#abort(view);
+		else this.#open(view);
+	}
+
+	#abort(view: KeyView): void {
+		const session = this.sessionOf(view);
+		if (session?.state !== "working" || !session.runningTurnId) {
+			view.showAlert();
+			return;
+		}
+		this.queueAbort(session.id, session.runningTurnId, () => view.showAlert());
+	}
+
+	#open(view: KeyView): void {
 		const session = this.sessionOf(view);
 		const attempt = (show: () => Promise<boolean>) => show().catch(() => false);
 		if (!session) {

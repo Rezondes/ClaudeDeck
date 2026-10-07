@@ -1,4 +1,4 @@
-import { SingletonAction, type DidReceiveSettingsEvent, type KeyDownEvent, type WillAppearEvent, type WillDisappearEvent } from "@elgato/streamdeck";
+import { SingletonAction, type DidReceiveSettingsEvent, type KeyDownEvent, type KeyUpEvent, type WillAppearEvent, type WillDisappearEvent } from "@elgato/streamdeck";
 
 import type { KeyView } from "./key-view.js";
 
@@ -7,6 +7,8 @@ export interface KeyController {
 	appear(view: KeyView, ev: WillAppearEvent): void;
 	disappear(id: string): void;
 	press(view: KeyView): void;
+	/** Key released; only controllers that tell short from long presses need it. */
+	release?(view: KeyView): void;
 	/** Property inspector changed this key's settings. */
 	settingsChanged?(id: string, settings: Record<string, unknown>): void;
 }
@@ -31,6 +33,10 @@ export class KeyAdapter extends SingletonAction {
 
 	override onKeyDown(ev: KeyDownEvent): void {
 		this.controller.press(ev.action);
+	}
+
+	override onKeyUp(ev: KeyUpEvent): void {
+		this.controller.release?.(ev.action);
 	}
 
 	override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void {

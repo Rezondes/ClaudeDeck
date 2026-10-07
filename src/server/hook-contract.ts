@@ -15,7 +15,10 @@ export const HOOK_EVENTS = [
 
 export type HookEventName = (typeof HOOK_EVENTS)[number];
 
-/** Contract with the plugin module (claude-module/hooks/register.ts), which posts to MODULE_BASE_URL/<event>. */
+/**
+ * Contract with the plugin module (claude-module/hooks/register.ts), which posts to MODULE_BASE_URL/<event>
+ * and polls GET MODULE_BASE_URL/commands?session=<id> for { commands: ModuleCommand[] } (src/server/command-queue.ts).
+ */
 export const MODULE_BASE_URL = `http://127.0.0.1:${HOOK_PORT}/module`;
 export const MODULE_EVENTS = ["session-start", "turn-start", "usage"] as const;
 

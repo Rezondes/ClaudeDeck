@@ -10,6 +10,7 @@ import { readDesktopSessions } from "./desktop/session-catalog.js";
 import { readContextUsage } from "./domain/context-usage.js";
 import { SessionStore } from "./domain/session-store.js";
 import type { DecisionKind } from "./render/decision-key.js";
+import { CommandQueue } from "./server/command-queue.js";
 import { HOOK_PORT } from "./server/hook-contract.js";
 import { createHookServer } from "./server/hook-server.js";
 import { PendingApprovals } from "./server/pending-approvals.js";
@@ -24,6 +25,8 @@ const store = new SessionStore(Date.now);
 const approvals = new PendingApprovals();
 approvals.onSettled((sessionId) => store.approvalDecided(sessionId));
 setInterval(() => store.tick(), 30_000);
+const commands = new CommandQueue(Date.now);
+setInterval(() => commands.expire(), 1000);
 
 let online = false;
 const decisionKeys = (["allow", "always", "deny"] as DecisionKind[]).map((kind) => {
@@ -70,13 +73,16 @@ streamDeck.actions.registerAction(
 
 streamDeck.actions.registerAction(new KeyAdapter("com.claudedeck.streamdeck.usage", new UsageKeys(store, Date.now)));
 
-const statusKeys = new StatusKeys(store, readContextUsage, Date.now, focusProject, () => readDesktopSessions(), openSession, openNeedsInput);
+const statusKeys = new StatusKeys(store, readContextUsage, Date.now, focusProject, () => readDesktopSessions(), openSession, openNeedsInput, (sessionId, turnId, onExpired) =>
+	commands.add(sessionId, turnId, onExpired),
+);
 void statusKeys.seed();
 streamDeck.actions.registerAction(
 	new KeyAdapter("com.claudedeck.streamdeck.status", {
 		appear: (view, ev) => statusKeys.appear(view, ev.action.isKey() ? ev.action.coordinates : undefined, ev.payload.settings as StatusSettings),
 		disappear: (id) => statusKeys.disappear(id),
 		press: (view) => statusKeys.press(view),
+		release: (view) => statusKeys.release(view),
 		settingsChanged: (id, settings) => statusKeys.settingsChanged(id, settings as StatusSettings),
 	}),
 );
@@ -88,6 +94,7 @@ const server = createHookServer({
 	},
 	onModuleEvent: (event) => store.handleModule(event),
 	approvals,
+	commands,
 	log: (message) => log.error(message),
 });
 server.listen(HOOK_PORT).then((ok) => {

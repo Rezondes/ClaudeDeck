@@ -26,6 +26,12 @@ function setup(readContext = vi.fn(async () => null as number | null)) {
 	return { store, keys, send, readContext, advance: (ms: number) => (now += ms) };
 }
 
+/** A short key press: down and up at once. */
+function tap(keys: StatusKeys, key: ReturnType<typeof view>): void {
+	keys.press(key);
+	keys.release(key);
+}
+
 const status = (project: string, state: Parameters<typeof renderStatusKey>[0]["state"], contextPercent: number | null = null, flash = false) =>
 	toDataUrl(renderStatusKey({ project, state, contextPercent, flash }));
 
@@ -229,7 +235,7 @@ describe("StatusKeys", () => {
 		const k0 = view("k0");
 		keys.appear(k0, { column: 0, row: 0 }, {});
 		send(event("Stop", "a"));
-		keys.press(k0);
+		tap(keys, k0);
 		expect(store.get("a")?.state).toBe("idle");
 		expect(k0.setImage).toHaveBeenLastCalledWith(status("a", "idle"));
 	});
@@ -242,7 +248,7 @@ describe("StatusKeys", () => {
 		const k0 = view("k0");
 		keys.appear(k0, { column: 0, row: 0 }, {});
 		store.handle(event("Stop", "api"));
-		keys.press(k0);
+		tap(keys, k0);
 		expect(focusProject).toHaveBeenCalledWith("api");
 		expect(store.get("api")?.state).toBe("idle");
 		await Promise.resolve();
@@ -255,7 +261,7 @@ describe("StatusKeys", () => {
 		const k0 = view("k0");
 		keys.appear(k0, { column: 0, row: 0 }, {});
 		store.handle(event("UserPromptSubmit", "api"));
-		keys.press(k0);
+		tap(keys, k0);
 		await vi.waitFor(() => expect(k0.showAlert).toHaveBeenCalledOnce());
 	});
 
@@ -278,7 +284,7 @@ describe("StatusKeys", () => {
 			keys.appear(k0, { column: 0, row: 0 }, {});
 			await keys.seed();
 			store.handle(event("Stop", sessionId));
-			keys.press(k0);
+			tap(keys, k0);
 			const state = store.get(sessionId)?.state;
 			await flush();
 			return { openSession, focusProject, alert: k0.showAlert, state };
@@ -336,10 +342,10 @@ describe("StatusKeys", () => {
 			const keys = new StatusKeys(store, async () => null, () => 0, async () => true, async () => [], async () => true, openNeedsInput);
 			const k0 = view("k0");
 			keys.appear(k0, { column: 0, row: 0 }, { project: "F:\\Code\\none" });
-			keys.press(k0); // nothing waiting yet
+			tap(keys, k0); // nothing waiting yet
 			expect(openNeedsInput).not.toHaveBeenCalled();
 			store.handle(event("PreToolUse", "a", { tool_name: "AskUserQuestion" }));
-			keys.press(k0);
+			tap(keys, k0);
 			for (let i = 0; i < 10; i++) await Promise.resolve();
 			return { openNeedsInput, alert: k0.showAlert };
 		}
@@ -351,11 +357,59 @@ describe("StatusKeys", () => {
 		expect((await pressWaiting(() => Promise.reject(new Error("no desktop")))).alert).toHaveBeenCalledOnce();
 	});
 
+	it("long press queues abort for the running turn", async () => {
+		let now = 0;
+		const store = new SessionStore(() => now);
+		const focusProject = vi.fn(async () => true);
+		const queueAbort = vi.fn<(sessionId: string, turnId: string, onExpired: () => void) => void>();
+		const keys = new StatusKeys(store, async () => null, () => now, focusProject, async () => [], async () => true, async () => true, queueAbort);
+		const k0 = view("k0");
+		keys.appear(k0, { column: 0, row: 0 }, {});
+		const longPress = () => {
+			keys.press(k0);
+			now += 600;
+			keys.release(k0);
+		};
+
+		// Working without a known turn (no module): nothing but an alert.
+		store.handle(event("UserPromptSubmit", "a"));
+		longPress();
+		expect(queueAbort).not.toHaveBeenCalled();
+		expect(k0.showAlert).toHaveBeenCalledOnce();
+
+		store.handleModule({ name: "turn-start", sessionId: "a", turnId: "t1" });
+		longPress();
+		expect(queueAbort).toHaveBeenCalledWith("a", "t1", expect.any(Function));
+		expect(focusProject).not.toHaveBeenCalled(); // a long press does not also open the session
+		expect(store.get("a")?.state).toBe("working");
+		queueAbort.mock.calls[0][2](); // nobody fetched it within 10 s
+		expect(k0.showAlert).toHaveBeenCalledTimes(2);
+
+		// Just under 600 ms is a short press: opens the session as before.
+		keys.press(k0);
+		now += 599;
+		keys.release(k0);
+		expect(focusProject).toHaveBeenCalledWith("a");
+		expect(queueAbort).toHaveBeenCalledOnce();
+
+		// Not working (done): a long press only alerts.
+		store.handle(event("Stop", "a"));
+		longPress();
+		expect(queueAbort).toHaveBeenCalledOnce();
+		expect(k0.showAlert).toHaveBeenCalledTimes(3);
+		expect(store.get("a")?.state).toBe("done");
+
+		// A release without a press (e.g. the key appeared while held) does nothing.
+		keys.release(k0);
+		await Promise.resolve();
+		expect(k0.showAlert).toHaveBeenCalledTimes(3);
+	});
+
 	it("press on an empty key does nothing", () => {
 		const { keys } = setup();
 		const k0 = view("k0");
 		keys.appear(k0, { column: 0, row: 0 }, {});
-		expect(() => keys.press(k0)).not.toThrow();
+		expect(() => tap(keys, k0)).not.toThrow();
 	});
 
 	describe("seeding from the Desktop catalog", () => {
