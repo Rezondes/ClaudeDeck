@@ -146,7 +146,7 @@ export class SessionStore {
 		return this.#rateLimits;
 	}
 
-	/** Set by a rate_limit StopFailure; cleared by a successful turn's usage report or once the earliest later reset has passed. */
+	/** Set by a rate_limit StopFailure; cleared by a completed turn's usage report or once the earliest later reset has passed. */
 	limitHitAt(): number | undefined {
 		const hitAt = this.#limitHitAt;
 		if (hitAt === undefined) return undefined;
@@ -199,8 +199,9 @@ export class SessionStore {
 	handleModule(event: ModuleEvent): void {
 		const reported = event.name === "usage" && Array.isArray(event.rateLimits) && event.rateLimits.length > 0;
 		if (reported) this.#rateLimits = { limits: mergeLimits(this.#rateLimits?.limits ?? [], event.rateLimits as unknown[]), at: this.#now() };
-		// A successful turn's report (not the timed one) means the limit no longer blocks.
-		const cleared = event.name === "usage" && event.periodic !== true && this.#limitHitAt !== undefined;
+		// A completed turn's report (not the timed one, not an aborted or failed turn) means the limit no longer blocks; older modules send no outcome.
+		const completed = event.name === "usage" && event.periodic !== true && (event.outcome === undefined || event.outcome === "completed");
+		const cleared = completed && this.#limitHitAt !== undefined;
 		if (cleared) this.#limitHitAt = undefined;
 		if (reported || cleared) this.#notifyRateLimits();
 		const session = this.#sessions.get(event.sessionId);
@@ -214,6 +215,11 @@ export class SessionStore {
 			if (session) session.runningTurnId = undefined;
 		}
 		if (!session) return;
+		// Esc fires neither Stop nor StopFailure (Package 30); pending approvals stay visible.
+		if (event.name === "usage" && event.periodic !== true && event.outcome === "aborted" && session.baseState === "working") {
+			session.baseState = "idle";
+			this.#update(session);
+		}
 		if (event.name === "usage" && typeof event.context === "object" && event.context) {
 			const number = (value: unknown) => (typeof value === "number" ? value : undefined);
 			const before = session.moduleContext?.percent;

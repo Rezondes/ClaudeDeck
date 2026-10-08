@@ -1,4 +1,4 @@
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, TurnCompleteInput } from 'claude-code'
 
 // Must match MODULE_BASE_URL in src/server/hook-contract.ts.
 const BASE = 'http://127.0.0.1:37419/module'
@@ -28,11 +28,16 @@ async function pollCommands($: EngineInterface, runningTurnId: () => string | un
 	} catch {}
 }
 
-/** Posts the usage; periodic reports (Package 29) carry periodic: true so the store keeps the running turn. */
-function postUsage($: EngineInterface, periodic: boolean): Promise<void> {
+type Outcome = 'completed' | 'aborted' | 'failed'
+
+/** How a turn ended (PLAN.md, Package 30): reason "error" is an API error, a refusal counts as an answered turn. */
+const outcomeOf = (e: TurnCompleteInput): Outcome => (e.isAborted ? 'aborted' : e.reason === 'error' ? 'failed' : 'completed')
+
+/** Posts the usage; periodic reports (Package 29) carry periodic: true and no outcome, so the store keeps the running turn and state. */
+function postUsage($: EngineInterface, end: { periodic: true } | { outcome: Outcome }): Promise<void> {
 	return post($, 'usage', async () => {
 		const { context, rateLimits } = await $.session.usage()
-		return periodic ? { context, rateLimits, periodic } : { context, rateLimits }
+		return { context, rateLimits, ...end }
 	})
 }
 
@@ -51,7 +56,7 @@ export const register: Register = on => {
 			reporting = $.clock.every(USAGE_REPORT_MS, () => {
 				if (reportBusy) return
 				reportBusy = true
-				void postUsage($, true).finally(() => (reportBusy = false))
+				void postUsage($, { periodic: true }).finally(() => (reportBusy = false))
 			})
 		} catch {}
 		try {
@@ -75,7 +80,7 @@ export const register: Register = on => {
 	on('turn.complete', async ($, e, next) => {
 		if (runningTurnId === e.turnId) runningTurnId = undefined
 		const result = await next(e)
-		void postUsage($, false)
+		void postUsage($, { outcome: outcomeOf(e) })
 		return result
 	})
 }

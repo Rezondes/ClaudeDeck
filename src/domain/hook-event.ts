@@ -32,4 +32,6 @@ export interface ModuleEvent {
 	rateLimits?: unknown[];
 	/** usage: true for the timed report (Package 29), which must not end the running turn. */
 	periodic?: boolean;
+	/** usage after turn.complete (Package 30): how the turn ended; missing from periodic reports and older modules. */
+	outcome?: "completed" | "aborted" | "failed";
 }

@@ -1336,13 +1336,13 @@ Gemeldet vom Nutzer: Die 5h-Anzeige stand bei 99 %, obwohl das Limit erreicht wa
 
 ### Kontext
 
-Bei einem Abbruch durch den Nutzer feuern weder `Stop` noch `StopFailure` (Hooks-Doku); die Kachel bleibt bisher auf "Working". Das Modul sieht den Abbruch: `turn.complete` hat `isAborted: true`. Neu: Das Modul schickt bei `turn.complete` das Flag `aborted` mit; der Session-Store setzt bei `aborted` eine `working`-Session auf `idle` (offene Freigaben bleiben unberührt). Ohne Modul bleibt das bisherige Verhalten.
+Bei einem Abbruch durch den Nutzer feuern weder `Stop` noch `StopFailure` (Hooks-Doku); die Kachel bleibt bisher auf "Working". Das Modul sieht den Abbruch: `turn.complete` hat `isAborted: true`. Neu: Das Modul schickt bei `turn.complete` das Feld `outcome` mit; der Session-Store setzt bei `outcome: "aborted"` eine `working`-Session auf `idle` (offene Freigaben bleiben unberührt). Ohne Modul bleibt das bisherige Verhalten.
 
 ### Acceptance Criteria
 
-- [ ] AC1: Das Modul sendet bei `turn.complete` zusätzlich `aborted: true|false` an `/module/usage`.
-- [ ] AC2: `aborted: true` setzt eine Session im Basiszustand `working` auf `idle`; andere Zustände bleiben unverändert.
-- [ ] AC3: Ein periodischer Report (Package 29) trägt kein `aborted` und ändert keinen Zustand.
+- [ ] AC1: Das Modul sendet bei `turn.complete` zusätzlich `outcome` an `/module/usage`: `"aborted"` (isAborted), `"failed"` (reason `error`), sonst `"completed"`. Nur `"completed"` hebt die Limit-Markierung aus Package 29 auf.
+- [ ] AC2: `outcome: "aborted"` setzt eine Session im Basiszustand `working` auf `idle`; andere Zustände bleiben unverändert.
+- [ ] AC3: Ein periodischer Report (Package 29) trägt kein `outcome` und ändert keinen Zustand.
 
 ### Tests (TDD)
 

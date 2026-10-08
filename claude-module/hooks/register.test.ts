@@ -43,8 +43,23 @@ test('reports session start, turn start and usage', async ($, on) => {
 	expect(requests).toEqual([
 		post('session-start', { sessionId, cwd: 'F:\\Code\\ClaudeDeck' }),
 		post('turn-start', { sessionId, turnId: 't1' }),
-		post('usage', { sessionId, context: USAGE.context, rateLimits: USAGE.rateLimits }),
+		post('usage', { sessionId, context: USAGE.context, rateLimits: USAGE.rateLimits, outcome: 'completed' }),
 	])
+})
+
+test('reports aborted turns', async ($, on) => {
+	const outcomes: unknown[] = []
+	on('http.fetch', async (_$, e) => {
+		if (e.url.endsWith('/module/usage')) outcomes.push(JSON.parse(String(e.init?.body)).outcome)
+		return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
+	})
+	engine(on)
+
+	await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+	await $.turn.complete({ answer: '', durationMs: 1, isAborted: true, turnId: 't2', reason: 'aborted' })
+	await $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId: 't3', reason: 'error' })
+	await settle()
+	expect(outcomes).toEqual(['completed', 'aborted', 'failed'])
 })
 
 test('ignores a missing ClaudeDeck', async ($, on) => {

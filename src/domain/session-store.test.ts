@@ -512,6 +512,48 @@ describe("SessionStore", () => {
 		expect(store.get("s1")?.runningTurnId).toBeUndefined();
 	});
 
+	it("an aborted turn ends working as idle", () => {
+		const store = new SessionStore(() => 0);
+		const changed: string[] = [];
+		store.onChange((id) => changed.push(id));
+		store.handle(enter.working);
+		store.handleModule({ name: "turn-start", sessionId: "s1", turnId: "t1" });
+
+		// A periodic report changes no state.
+		store.handleModule({ name: "usage", sessionId: "s1", periodic: true });
+		expect(store.get("s1")?.state).toBe("working");
+
+		store.handleModule({ name: "usage", sessionId: "s1", outcome: "aborted" });
+		expect(store.get("s1")).toMatchObject({ state: "idle", baseState: "idle", runningTurnId: undefined });
+		expect(changed).toEqual(["s1", "s1"]);
+
+		// A pending approval stays visible; other states are left alone.
+		store.handle(enter.approval);
+		store.handleModule({ name: "usage", sessionId: "s1", outcome: "aborted" });
+		expect(store.get("s1")).toMatchObject({ state: "approval", baseState: "idle", pendingApprovals: 1 });
+		store.approvalDecided("s1");
+		store.handle(event("Stop"));
+		store.handleModule({ name: "usage", sessionId: "s1", outcome: "aborted" });
+		expect(store.get("s1")?.state).toBe("done");
+	});
+
+	it("only a completed turn's usage report clears the limit marker", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(event("StopFailure", { error: "rate_limit" }));
+		store.handleModule({ name: "usage", sessionId: "s1", outcome: "aborted" });
+		expect(store.limitHitAt()).toBeDefined();
+		store.handleModule({ name: "usage", sessionId: "s1", outcome: "completed" });
+		expect(store.limitHitAt()).toBeUndefined();
+	});
+
+	it("a failed turn's usage report keeps the limit marker", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(event("StopFailure", { error: "rate_limit" }));
+		store.handleModule({ name: "usage", sessionId: "s1", outcome: "failed" });
+		expect(store.limitHitAt()).toBeDefined();
+		expect(store.get("s1")?.state).toBe("error");
+	});
+
 	it("periodic usage keeps the running turn", () => {
 		const store = new SessionStore(() => 0);
 		const limits = [{ kind: "five_hour", percentUsed: 100, resetsAt: "2026-10-07T12:00:00Z" }];
