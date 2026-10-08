@@ -1,12 +1,14 @@
 import { BAR_TRACK, FONT_FAMILY, KEY_BACKGROUND, STATE_COLORS, contextColor } from "./colors";
 
-export type StatusState = "working" | "approval" | "input" | "done" | "idle";
+export type StatusState = "working" | "approval" | "input" | "done" | "error" | "idle";
 
 export interface StatusKeyInput {
 	project: string;
 	/** Desktop session title; replaces the project name when not blank. */
 	title?: string;
 	state: StatusState;
+	/** StopFailure error of an "error" session; "rate_limit" shows "Limit". */
+	errorKind?: string;
 	contextPercent: number | null;
 	flash?: boolean;
 }
@@ -16,6 +18,7 @@ const LABELS: Record<StatusState, string> = {
 	approval: "Approve",
 	input: "Input",
 	done: "Done",
+	error: "Error",
 	idle: "Idle",
 };
 
@@ -73,8 +76,9 @@ function nameText(project: string, title: string | undefined): string[] {
 	return [`<text x="72" y="52" text-anchor="middle" font-size="${nameSize}" font-weight="700" fill="#FFFFFF">${escapeXml(name)}</text>`];
 }
 
-export function renderStatusKey({ project, title, state, contextPercent, flash = false }: StatusKeyInput): string {
+export function renderStatusKey({ project, title, state, errorKind, contextPercent, flash = false }: StatusKeyInput): string {
 	const color = STATE_COLORS[state];
+	const label = state === "error" && errorKind === "rate_limit" ? "Limit" : LABELS[state];
 	const percent =
 		contextPercent === null || !Number.isFinite(contextPercent) ? null : Math.round(Math.min(100, Math.max(0, contextPercent)));
 	const ctxColor = percent === null ? STATE_COLORS.idle : contextColor(percent);
@@ -91,7 +95,7 @@ export function renderStatusKey({ project, title, state, contextPercent, flash =
 		`<rect ${KEY_RECT} fill="url(#tint)"/>`,
 		border,
 		...nameText(project, title),
-		`<text x="18" y="92" font-size="15" font-weight="600" fill="${color}">${LABELS[state]}</text>`,
+		`<text x="18" y="92" font-size="15" font-weight="600" fill="${color}">${label}</text>`,
 		`<text x="126" y="92" text-anchor="end" font-size="15" font-weight="600" fill="${ctxColor}">${percent === null ? "--" : `${percent}%`}</text>`,
 		...(percent === null
 			? []

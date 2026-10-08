@@ -13,7 +13,7 @@ type HookEntry = { hooks: { type: string; url: string; timeout: number }[] };
 describe("claude code plugin", () => {
 	it("hooks.json registers every required event once", () => {
 		// Independent of HOOK_EVENTS: the events verified in docs/spike-results.md (AC0).
-		const verified = ["UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Notification", "Stop", "SessionEnd"];
+		const verified = ["UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Notification", "Stop", "StopFailure", "SessionEnd"];
 		expect(Object.keys(hooks).sort()).toEqual(verified.sort());
 		expect([...HOOK_EVENTS].sort()).toEqual(verified.sort());
 		expect(hooks).not.toHaveProperty("SessionStart");

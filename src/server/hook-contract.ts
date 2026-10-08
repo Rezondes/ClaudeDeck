@@ -10,6 +10,7 @@ export const HOOK_EVENTS = [
 	"PermissionRequest",
 	"Notification",
 	"Stop",
+	"StopFailure",
 	"SessionEnd",
 ] as const;
 

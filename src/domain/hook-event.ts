@@ -14,6 +14,8 @@ export interface HookEvent {
 	notification_type?: string;
 	/** Stop only: background agents/tasks still running when the main agent's turn ended. */
 	background_tasks?: unknown[];
+	/** StopFailure only: why the turn ended, e.g. "rate_limit", "overloaded", "server_error", "unknown". */
+	error?: string;
 }
 
 /** Fields the plugin module (claude-module/hooks/register.ts) posts; only sessionId is checked by the hook server. */

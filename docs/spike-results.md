@@ -33,6 +33,17 @@ Skipping HTTP hook http://127.0.0.1:37419/hook/SessionStart - HTTP hooks are not
 
 Konsequenz: `SessionStart` wird nicht registriert. Sessions entstehen implizit beim ersten Event (Package 2 AC4), in der Regel `UserPromptSubmit`. Ein Command-Hook (`forward.mjs`) wird damit nicht gebraucht.
 
+### Nachtrag Package 28: `StopFailure` (2026-10-08)
+
+HTTP wird für `StopFailure` unterstützt. Geprüft mit `claude -p "say ok" --model claude-nonexistent-model-xyz --plugin-dir claude-plugin --debug` in einem leeren Temp-Verzeichnis: das unbekannte Modell beendet den Turn mit einem echten `StopFailure` (`error: "model_not_found"`). Debug-Log (der laufende Hook-Server kannte die Route da noch nicht, daher 404):
+
+```
+Hooks: HTTP hook POST to http://127.0.0.1:37419/hook/StopFailure
+StopFailure:model_not_found [http://127.0.0.1:37419/hook/StopFailure] failed: HTTP 404 from http://127.0.0.1:37419/hook/StopFailure
+```
+
+Keine "Skipping HTTP hook"-Zeile. Konsequenz: `StopFailure` wird wie die anderen Events als HTTP-Hook registriert, ein Command-Hook ist nicht nötig. Ein normaler Lauf (`say ok`) feuert nur `Stop`, kein `StopFailure`.
+
 ## AC4: Server offline
 
 ```

@@ -82,6 +82,13 @@ describe("hook server", () => {
 		expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ hook_event_name: "PreToolUse", session_id: "s1", tool_name: "Bash" }));
 	});
 
+	it("accepts StopFailure", async () => {
+		const { onEvent, post } = await start();
+		const res = await post("/hook/StopFailure", payload({ error: "rate_limit", error_details: "429" }));
+		expect(res.status).toBe(200);
+		expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ hook_event_name: "StopFailure", error: "rate_limit" }));
+	});
+
 	it("takes the event name from the URL", async () => {
 		const { onEvent, post } = await start();
 		await post("/hook/Stop", payload({ hook_event_name: "PreToolUse" }));

@@ -256,7 +256,7 @@ export class StatusKeys {
 		else this.#stopFlash(id);
 		const flash = this.#flashOn.get(id) ?? false;
 		view.setImage(
-			toDataUrl(renderStatusKey({ project: session.projectName, title: session.title, state: session.state, contextPercent: session.moduleContext?.percent ?? this.#context.get(session.id) ?? null, flash })),
+			toDataUrl(renderStatusKey({ project: session.projectName, title: session.title, state: session.state, errorKind: session.errorKind, contextPercent: session.moduleContext?.percent ?? this.#context.get(session.id) ?? null, flash })),
 		);
 	}
 

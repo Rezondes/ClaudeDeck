@@ -1,6 +1,6 @@
 import type { HookEvent, ModuleEvent } from "./hook-event.js";
 
-export type SessionState = "working" | "approval" | "input" | "done" | "idle";
+export type SessionState = "working" | "approval" | "input" | "done" | "error" | "idle";
 
 export interface Session {
 	id: string;
@@ -20,6 +20,8 @@ export interface Session {
 	title?: string;
 	/** Last permission_mode seen, undefined until an event carried one. */
 	permissionMode?: string;
+	/** error of the last StopFailure, e.g. "rate_limit"; read only while baseState is "error". */
+	errorKind?: string;
 	/** now() of the last hook event. */
 	lastEventAt: number;
 	/** turnId of the running turn, from the plugin module (turn-start); cleared on Stop and on module usage (turn completed). */
@@ -60,6 +62,9 @@ function stateFor(event: HookEvent): SessionState | undefined {
 		case "Stop":
 			// The main agent's turn ended, but background agents it started are still running.
 			return Array.isArray(event.background_tasks) && event.background_tasks.length > 0 ? "working" : "done";
+		case "StopFailure":
+			// The turn ended with an API error (e.g. rate limit) instead of Stop.
+			return "error";
 	}
 }
 
@@ -121,7 +126,8 @@ export class SessionStore {
 		session.baseState = stateFor(event) ?? session.baseState;
 		session.state = this.#visibleState(session);
 		session.permissionMode = event.permission_mode ?? session.permissionMode;
-		if (event.hook_event_name === "Stop") session.runningTurnId = undefined;
+		if (event.hook_event_name === "Stop" || event.hook_event_name === "StopFailure") session.runningTurnId = undefined;
+		if (event.hook_event_name === "StopFailure") session.errorKind = typeof event.error === "string" ? event.error : undefined;
 		session.lastEventAt = this.#now();
 		const moved = known ? this.#followLatest(session) : this.#distribute(normalizeCwd(session.cwd));
 		const changed = before?.state !== session.state || before.permissionMode !== session.permissionMode;
@@ -159,10 +165,10 @@ export class SessionStore {
 		}
 	}
 
-	/** Called periodically by the plugin: done sessions without events for 10 min become idle. */
+	/** Called periodically by the plugin: done and error sessions without events for 10 min become idle. */
 	tick(): void {
 		for (const session of this.#sessions.values()) {
-			if (session.state === "done" && this.#now() - session.lastEventAt >= DONE_TIMEOUT_MS) {
+			if ((session.state === "done" || session.state === "error") && this.#now() - session.lastEventAt >= DONE_TIMEOUT_MS) {
 				session.baseState = session.state = "idle";
 				this.#notify(session.id);
 			}
@@ -181,7 +187,7 @@ export class SessionStore {
 	/** Status key pressed: acknowledges a finished session. */
 	keyPressed(sessionId: string): void {
 		const session = this.#sessions.get(sessionId);
-		if (session?.state === "done") {
+		if (session?.state === "done" || session?.state === "error") {
 			session.baseState = "idle";
 			this.#update(session);
 		}

@@ -9,6 +9,7 @@ const LABELS: Record<StatusState, string> = {
 	input: "Input",
 	done: "Done",
 	idle: "Idle",
+	error: "Error",
 };
 
 describe("render", () => {
@@ -21,6 +22,14 @@ describe("render", () => {
 		expect(svg).toContain(">42%<");
 		expect(svg).toContain(STATE_COLORS[state]);
 		expect(svg).toMatchSnapshot();
+	});
+
+	it("error key shows Limit for rate_limit and Error otherwise", () => {
+		const svg = (errorKind?: string) => renderStatusKey({ project: "ClaudeDeck", state: "error", errorKind, contextPercent: 42 });
+		expect(svg("rate_limit")).toContain(">Limit<");
+		expect(svg("overloaded")).toContain(">Error<");
+		expect(svg()).toContain(">Error<");
+		expect(svg("rate_limit")).toContain("#E5484D");
 	});
 
 	it("context color thresholds", () => {

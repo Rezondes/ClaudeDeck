@@ -29,6 +29,7 @@ const enter: Record<Exclude<SessionState, "idle">, HookEvent> = {
 	approval: event("PermissionRequest", { tool_name: "Bash" }),
 	input: event("PreToolUse", { tool_name: "AskUserQuestion" }),
 	done: event("Stop"),
+	error: event("StopFailure", { error: "server_error" }),
 };
 
 describe("SessionStore", () => {
@@ -315,6 +316,35 @@ describe("SessionStore", () => {
 		store.handle(event("UserPromptSubmit", { permission_mode: "plan" }));
 		store.handle(event("Notification", { permission_mode: undefined, notification_type: "idle_prompt" }));
 		expect(store.get("s1")?.permissionMode).toBe("plan");
+	});
+
+	it("key press acknowledges an error like done", () => {
+		const store = new SessionStore(() => 0);
+		store.handle(event("StopFailure", { error: "rate_limit" }));
+		expect(store.get("s1")?.state).toBe("error");
+		store.keyPressed("s1");
+		expect(store.get("s1")?.state).toBe("idle");
+	});
+
+	it("StopFailure sets error with its kind", () => {
+		let now = 0;
+		const store = new SessionStore(() => now);
+		store.handle(enter.approval);
+		store.handle(event("StopFailure", { error: "rate_limit" }));
+		expect(store.get("s1")).toMatchObject({ state: "approval", baseState: "error", errorKind: "rate_limit", pendingApprovals: 1 });
+		store.approvalDecided("s1");
+		expect(store.get("s1")?.state).toBe("error");
+		store.handle(event("StopFailure"));
+		expect(store.get("s1")?.errorKind).toBeUndefined();
+		now = 599_999;
+		store.tick();
+		expect(store.get("s1")?.state).toBe("error");
+		now = 600_000;
+		store.tick();
+		expect(store.get("s1")?.state).toBe("idle");
+		store.handle(enter.error);
+		store.handle(event("UserPromptSubmit"));
+		expect(store.get("s1")?.state).toBe("working");
 	});
 
 	it("done turns idle after 10 minutes", () => {

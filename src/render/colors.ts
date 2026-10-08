@@ -3,6 +3,7 @@ export const STATE_COLORS = {
 	approval: "#F5C518",
 	input: "#B05CE6",
 	done: "#2FBF5B",
+	error: "#E5484D",
 	idle: "#8A8F98",
 } as const;
 
