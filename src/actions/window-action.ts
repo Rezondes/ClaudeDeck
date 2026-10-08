@@ -24,7 +24,7 @@ export class WindowKeys {
 		private readonly watch: Watch,
 		private readonly log: (message: string) => void = () => {},
 	) {
-		watch.onChange(() => this.#renderAll());
+		watch.onChange(() => this.renderAll());
 	}
 
 	appear(view: KeyView): void {
@@ -59,7 +59,7 @@ export class WindowKeys {
 		return desktop ? { hwnd: desktop.hwnd, ...(await this.windows.windowState(desktop.hwnd)) } : undefined;
 	}
 
-	#renderAll(): void {
+	renderAll(): void {
 		for (const view of this.#views.values()) this.#render(view);
 	}
 

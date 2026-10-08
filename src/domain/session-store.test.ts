@@ -511,4 +511,64 @@ describe("SessionStore", () => {
 		store.handleModule({ name: "usage", sessionId: "s1", rateLimits: [] });
 		expect(store.get("s1")?.runningTurnId).toBeUndefined();
 	});
+
+	it("periodic usage keeps the running turn", () => {
+		const store = new SessionStore(() => 0);
+		const limits = [{ kind: "five_hour", percentUsed: 100, resetsAt: "2026-10-07T12:00:00Z" }];
+		store.handle(enter.working);
+		store.handleModule({ name: "turn-start", sessionId: "s1", turnId: "t1" });
+		store.handleModule({ name: "usage", sessionId: "s1", periodic: true, context: { tokens: 1, window: 100, percent: 1 }, rateLimits: limits });
+		expect(store.get("s1")?.runningTurnId).toBe("t1");
+		expect(store.get("s1")?.moduleContext).toEqual({ tokens: 1, window: 100, percent: 1 });
+		expect(store.rateLimits()?.limits).toEqual(limits);
+	});
+
+	describe("rate limit merge per kind", () => {
+		const fiveHour = (percentUsed: number, resetsAt: string) => ({ kind: "five_hour", percentUsed, resetsAt });
+		const report = (store: SessionStore, ...limits: unknown[]) => store.handleModule({ name: "usage", sessionId: "x", periodic: true, rateLimits: limits });
+
+		it("an older report does not lower a fresher limit", () => {
+			const store = new SessionStore(() => 0);
+			report(store, fiveHour(99, "2026-10-08T15:00:00Z"), { kind: "seven_day", percentUsed: 40, resetsAt: "2026-10-12T09:00:00Z" });
+			// An idle session's cached limits: same window (resetsAt 30 s apart), lower percent.
+			report(store, fiveHour(80, "2026-10-08T15:00:30Z"), { kind: "seven_day", percentUsed: 41, resetsAt: "2026-10-12T09:00:00Z" });
+			expect(store.rateLimits()?.limits).toEqual([fiveHour(99, "2026-10-08T15:00:00Z"), { kind: "seven_day", percentUsed: 41, resetsAt: "2026-10-12T09:00:00Z" }]);
+		});
+
+		it("a new window replaces even a higher percent; a stale window is ignored", () => {
+			const store = new SessionStore(() => 0);
+			report(store, fiveHour(99, "2026-10-08T15:00:00Z"));
+			report(store, fiveHour(3, "2026-10-08T20:00:00Z"));
+			expect(store.rateLimits()?.limits).toEqual([fiveHour(3, "2026-10-08T20:00:00Z")]);
+			report(store, fiveHour(99, "2026-10-08T15:00:00Z"), { kind: "other", percentUsed: 5 });
+			expect(store.rateLimits()?.limits).toEqual([fiveHour(3, "2026-10-08T20:00:00Z"), { kind: "other", percentUsed: 5 }]);
+		});
+	});
+
+	it("a rate_limit StopFailure marks the limit until a successful turn or the next reset", () => {
+		let now = Date.parse("2026-10-08T14:00:00Z");
+		const store = new SessionStore(() => now);
+		const notified: unknown[] = [];
+		store.onRateLimits((r) => notified.push(r));
+		store.handle(event("StopFailure", { error: "server_error" }));
+		expect(store.limitHitAt()).toBeUndefined();
+
+		store.handle(event("StopFailure", { error: "rate_limit" }));
+		expect(store.limitHitAt()).toBe(now);
+		expect(notified).toHaveLength(1);
+
+		// A periodic report keeps it, a successful turn's report clears it.
+		store.handleModule({ name: "usage", sessionId: "s1", periodic: true, rateLimits: [{ kind: "five_hour", percentUsed: 100, resetsAt: "2026-10-08T15:00:00Z" }] });
+		expect(store.limitHitAt()).toBeDefined();
+		store.handleModule({ name: "usage", sessionId: "s1" });
+		expect(store.limitHitAt()).toBeUndefined();
+		expect(notified).toHaveLength(3);
+
+		// Or the earliest known reset passes.
+		store.handle(event("StopFailure", { error: "rate_limit" }));
+		now = Date.parse("2026-10-08T14:59:59Z");
+		expect(store.limitHitAt()).toBeDefined();
+		now = Date.parse("2026-10-08T15:00:00Z");
+		expect(store.limitHitAt()).toBeUndefined();
+	});
 });

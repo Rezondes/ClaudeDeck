@@ -30,4 +30,6 @@ export interface ModuleEvent {
 	context?: { tokens?: number; window?: number; percent?: number };
 	/** usage: $.session.usage().rateLimits, e.g. { kind: "five_hour", percentUsed: 85, resetsAt } */
 	rateLimits?: unknown[];
+	/** usage: true for the timed report (Package 29), which must not end the running turn. */
+	periodic?: boolean;
 }

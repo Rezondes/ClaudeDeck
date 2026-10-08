@@ -35,6 +35,42 @@ export type ModuleContext = { percent?: number; window?: number; tokens?: number
 /** Plan usage limits as the plugin module reported them last (any session), e.g. { kind: "five_hour", percentUsed, resetsAt }. */
 export type RateLimits = { limits: unknown[]; at: number };
 
+/** resetsAt values this close belong to the same window (the API rounds them differently per response). */
+const SAME_WINDOW_MS = 60_000;
+
+type Limit = { kind?: unknown; percentUsed?: unknown; resetsAt?: unknown };
+const kindOf = (limit: unknown) => (typeof (limit as Limit | null)?.kind === "string" ? ((limit as Limit).kind as string) : undefined);
+const resetOf = (limit: unknown) => {
+	const raw = (limit as Limit | null)?.resetsAt;
+	const time = typeof raw === "string" ? Date.parse(raw) : NaN;
+	return Number.isNaN(time) ? undefined : time;
+};
+const percentOf = (limit: unknown) => {
+	const raw = (limit as Limit | null)?.percentUsed;
+	return typeof raw === "number" ? raw : -Infinity;
+};
+
+/**
+ * Each session reports the limits of its own last API response, so an idle session's report can be older than what is known.
+ * Per kind: same window keeps the higher percent, a later window replaces, an earlier (stale) window is ignored.
+ */
+function mergeLimits(known: unknown[], reported: unknown[]): unknown[] {
+	const merged = [...known];
+	for (const limit of reported) {
+		const kind = kindOf(limit);
+		const index = kind === undefined ? -1 : merged.findIndex((k) => kindOf(k) === kind);
+		if (index < 0) {
+			merged.push(limit);
+			continue;
+		}
+		const before = resetOf(merged[index]);
+		const after = resetOf(limit);
+		const delta = before === undefined || after === undefined ? Infinity : after - before;
+		if (delta > SAME_WINDOW_MS || (Math.abs(delta) <= SAME_WINDOW_MS && percentOf(limit) >= percentOf(merged[index]))) merged[index] = limit;
+	}
+	return merged;
+}
+
 /** A status key slot bound to a project folder. latestOnly: the slot always shows the folder's session with the newest event. */
 export type Pin = { cwd: string; latestOnly: boolean };
 
@@ -86,6 +122,8 @@ export class SessionStore {
 	readonly #listeners: ((sessionId: string) => void)[] = [];
 	readonly #rateLimitListeners: ((rateLimits: RateLimits) => void)[] = [];
 	#rateLimits: RateLimits | undefined;
+	/** When a turn last failed with error "rate_limit"; global like the limits. */
+	#limitHitAt: number | undefined;
 	/** turn-start of sessions no hook event created yet (the module can race ahead of UserPromptSubmit); applied by #create. */
 	readonly #pendingTurnIds = new Map<string, string>();
 	readonly #now: () => number;
@@ -99,13 +137,27 @@ export class SessionStore {
 		this.#listeners.push(listener);
 	}
 
-	/** Called whenever the plugin module reports a non-empty rate limit list. */
+	/** Called whenever the plugin module reports a non-empty rate limit list and when the limit marker is set or cleared. */
 	onRateLimits(listener: (rateLimits: RateLimits) => void): void {
 		this.#rateLimitListeners.push(listener);
 	}
 
 	rateLimits(): RateLimits | undefined {
 		return this.#rateLimits;
+	}
+
+	/** Set by a rate_limit StopFailure; cleared by a successful turn's usage report or once the earliest later reset has passed. */
+	limitHitAt(): number | undefined {
+		const hitAt = this.#limitHitAt;
+		if (hitAt === undefined) return undefined;
+		const resets = (this.#rateLimits?.limits ?? []).map(resetOf).filter((t): t is number => t !== undefined && t > hitAt);
+		if (resets.length > 0 && Math.min(...resets) <= this.#now()) this.#limitHitAt = undefined;
+		return this.#limitHitAt;
+	}
+
+	#notifyRateLimits(): void {
+		const rateLimits = this.#rateLimits ?? { limits: [], at: this.#now() };
+		for (const listener of this.#rateLimitListeners) listener(rateLimits);
 	}
 
 	get(sessionId: string): Session | undefined {
@@ -128,6 +180,10 @@ export class SessionStore {
 		session.permissionMode = event.permission_mode ?? session.permissionMode;
 		if (event.hook_event_name === "Stop" || event.hook_event_name === "StopFailure") session.runningTurnId = undefined;
 		if (event.hook_event_name === "StopFailure") session.errorKind = typeof event.error === "string" ? event.error : undefined;
+		if (event.hook_event_name === "StopFailure" && event.error === "rate_limit") {
+			this.#limitHitAt = this.#now();
+			this.#notifyRateLimits();
+		}
 		session.lastEventAt = this.#now();
 		const moved = known ? this.#followLatest(session) : this.#distribute(normalizeCwd(session.cwd));
 		const changed = before?.state !== session.state || before.permissionMode !== session.permissionMode;
@@ -141,18 +197,19 @@ export class SessionStore {
 	 * An empty list (before the session's first API call) does not erase known limits. Notifies only when the context percent changed.
 	 */
 	handleModule(event: ModuleEvent): void {
-		if (event.name === "usage" && Array.isArray(event.rateLimits) && event.rateLimits.length > 0) {
-			const rateLimits = { limits: event.rateLimits, at: this.#now() };
-			this.#rateLimits = rateLimits;
-			for (const listener of this.#rateLimitListeners) listener(rateLimits);
-		}
+		const reported = event.name === "usage" && Array.isArray(event.rateLimits) && event.rateLimits.length > 0;
+		if (reported) this.#rateLimits = { limits: mergeLimits(this.#rateLimits?.limits ?? [], event.rateLimits as unknown[]), at: this.#now() };
+		// A successful turn's report (not the timed one) means the limit no longer blocks.
+		const cleared = event.name === "usage" && event.periodic !== true && this.#limitHitAt !== undefined;
+		if (cleared) this.#limitHitAt = undefined;
+		if (reported || cleared) this.#notifyRateLimits();
 		const session = this.#sessions.get(event.sessionId);
 		if (event.name === "turn-start" && typeof event.turnId === "string") {
 			if (session) session.runningTurnId = event.turnId;
 			// ponytail: entries of sessions that never get a hook event stay until their usage arrives; cap if that ever matters.
 			else this.#pendingTurnIds.set(event.sessionId, event.turnId);
 		}
-		if (event.name === "usage") {
+		if (event.name === "usage" && event.periodic !== true) {
 			this.#pendingTurnIds.delete(event.sessionId);
 			if (session) session.runningTurnId = undefined;
 		}

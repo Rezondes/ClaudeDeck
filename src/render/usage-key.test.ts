@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CONTEXT_COLORS } from "./colors.js";
+import { CONTEXT_COLORS, STATE_COLORS } from "./colors.js";
 import { renderUsageKey, renderUsageResetKey, resetLabel } from "./usage-key.js";
 
 function expectSvgTiny(svg: string): void {
@@ -29,6 +29,19 @@ describe("renderUsageKey", () => {
 		const svg = renderUsageKey({ fiveHour: null, sevenDay: null });
 		expect(svg.match(/>--</g)).toHaveLength(2);
 		expect(svg).not.toContain("%<");
+		expectSvgTiny(svg);
+	});
+});
+
+describe("renderUsageKey with the limit marker", () => {
+	it("turns title and both rows red", () => {
+		const svg = renderUsageKey({ fiveHour: 99, sevenDay: null, limit: true });
+		expect(svg).toContain(">LIMIT<");
+		expect(svg).not.toContain(">USAGE<");
+		expect(svg).toMatch(new RegExp(`fill="${STATE_COLORS.error}">LIMIT<`));
+		expect(svg).toMatch(new RegExp(`fill="${STATE_COLORS.error}">99%<`));
+		expect(svg).toMatch(new RegExp(`fill="${STATE_COLORS.error}">--<`));
+		expect(svg).toContain(`width="${(108 * 99) / 100}" height="6" rx="3" fill="${STATE_COLORS.error}"`);
 		expectSvgTiny(svg);
 	});
 });

@@ -5,6 +5,8 @@ import { escapeXml, svgDocument } from "./status-key";
 export interface UsageKeyInput {
 	fiveHour: number | null;
 	sevenDay: number | null;
+	/** A turn failed with "rate_limit": title "LIMIT", both rows red. */
+	limit?: boolean;
 }
 
 /** Reset label per plan limit (see resetLabel); null when unknown. */
@@ -23,11 +25,11 @@ export function resetLabel(resetsAt: Date, now: Date): string {
 	return resetsAt.toDateString() === now.toDateString() ? time : `${WEEKDAYS[resetsAt.getDay()]} ${time}`;
 }
 
-function frame(title: string): string[] {
+function frame(title: string, color: string = DIM): string[] {
 	return [
 		`<rect width="144" height="144" fill="#000000"/>`,
 		`<rect x="6" y="6" width="132" height="132" rx="20" fill="${KEY_BACKGROUND}" stroke="${BAR_TRACK}" stroke-width="2"/>`,
-		`<text x="72" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="${DIM}">${title}</text>`,
+		`<text x="72" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="${color}">${title}</text>`,
 	];
 }
 
@@ -35,9 +37,9 @@ const label = (text: string, y: number) => `<text x="18" y="${y}" font-size="16"
 const value = (text: string, y: number, color: string) =>
 	`<text x="126" y="${y}" text-anchor="end" font-size="18" font-weight="700" fill="${color}">${escapeXml(text)}</text>`;
 
-function usageRow(name: string, percentUsed: number | null, y: number): string[] {
+function usageRow(name: string, percentUsed: number | null, y: number, limit: boolean): string[] {
 	const percent = percentUsed === null || !Number.isFinite(percentUsed) ? null : Math.round(Math.min(100, Math.max(0, percentUsed)));
-	const color = percent === null ? DIM : contextColor(percent);
+	const color = limit ? STATE_COLORS.error : percent === null ? DIM : contextColor(percent);
 	return [
 		label(name, y),
 		value(percent === null ? "--" : `${percent}%`, y, color),
@@ -46,8 +48,9 @@ function usageRow(name: string, percentUsed: number | null, y: number): string[]
 	];
 }
 
-export function renderUsageKey({ fiveHour, sevenDay }: UsageKeyInput): string {
-	return svgDocument([...frame("USAGE"), ...usageRow("5h", fiveHour, 66), ...usageRow("7d", sevenDay, 106)]);
+export function renderUsageKey({ fiveHour, sevenDay, limit = false }: UsageKeyInput): string {
+	const title = limit ? frame("LIMIT", STATE_COLORS.error) : frame("USAGE");
+	return svgDocument([...title, ...usageRow("5h", fiveHour, 66, limit), ...usageRow("7d", sevenDay, 106, limit)]);
 }
 
 export function renderUsageResetKey({ fiveHour, sevenDay }: UsageResetInput): string {

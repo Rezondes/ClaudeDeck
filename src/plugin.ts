@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { DecisionKeys } from "./actions/decision-action.js";
 import { KeyAdapter } from "./actions/key-adapter.js";
+import { startRefresh } from "./actions/refresh.js";
 import { StatusKeys, type StatusSettings } from "./actions/status-action.js";
 import { UsageKeys } from "./actions/usage-action.js";
 import { WindowKeys } from "./actions/window-action.js";
@@ -67,11 +68,11 @@ const openNeedsInput = async () => {
 	}
 };
 const windowWatch = new WindowWatch(scriptPath, undefined, (message) => log.error(message));
-streamDeck.actions.registerAction(
-	new KeyAdapter("com.claudedeck.streamdeck.window", new WindowKeys(windows, windowWatch, (message) => log.error(message))),
-);
+const windowKeys = new WindowKeys(windows, windowWatch, (message) => log.error(message));
+streamDeck.actions.registerAction(new KeyAdapter("com.claudedeck.streamdeck.window", windowKeys));
 
-streamDeck.actions.registerAction(new KeyAdapter("com.claudedeck.streamdeck.usage", new UsageKeys(store, Date.now)));
+const usageKeys = new UsageKeys(store, Date.now);
+streamDeck.actions.registerAction(new KeyAdapter("com.claudedeck.streamdeck.usage", usageKeys));
 
 const statusKeys = new StatusKeys(store, readContextUsage, Date.now, focusProject, () => readDesktopSessions(), openSession, openNeedsInput, (sessionId, turnId, onExpired) =>
 	commands.add(sessionId, turnId, onExpired),
@@ -86,6 +87,7 @@ streamDeck.actions.registerAction(
 		settingsChanged: (id, settings) => statusKeys.settingsChanged(id, settings as StatusSettings),
 	}),
 );
+startRefresh([statusKeys, ...decisionKeys, usageKeys, windowKeys]);
 
 const server = createHookServer({
 	onEvent: (event) => {

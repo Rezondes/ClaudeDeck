@@ -12,6 +12,10 @@ function fakeStore() {
 	let current: RateLimits | undefined;
 	const listeners: ((r: RateLimits) => void)[] = [];
 	return {
+		hitAt: undefined as number | undefined,
+		limitHitAt() {
+			return this.hitAt;
+		},
 		rateLimits: () => current,
 		onRateLimits: (l: (r: RateLimits) => void) => void listeners.push(l),
 		report(limits: unknown[]) {
@@ -45,15 +49,28 @@ describe("UsageKeys", () => {
 		]);
 		expect(v.setImage).toHaveBeenLastCalledWith(toDataUrl(renderUsageKey({ fiveHour: 42.4, sevenDay: 85 })));
 
-		// The 5h window resets; the minute tick switches it to "--" without a new report.
+		// The 5h window resets; the periodic renderAll switches it to "--" without a new report.
 		now = at(15, 1).getTime();
-		vi.advanceTimersByTime(60_000);
+		keys.renderAll();
 		expect(v.setImage).toHaveBeenLastCalledWith(toDataUrl(renderUsageKey({ fiveHour: null, sevenDay: 85 })));
 
 		keys.disappear("k1");
 		v.setImage.mockClear();
-		vi.advanceTimersByTime(120_000);
+		keys.renderAll();
 		expect(v.setImage).not.toHaveBeenCalled();
+	});
+
+	it("shows LIMIT while the limit marker is set", () => {
+		const store = fakeStore();
+		const keys = new UsageKeys(store, () => now);
+		const v = view();
+		keys.appear(v);
+		store.hitAt = now;
+		store.report([{ kind: "five_hour", percentUsed: 99, resetsAt: at(15, 0).toISOString() }]);
+		expect(v.setImage).toHaveBeenLastCalledWith(toDataUrl(renderUsageKey({ fiveHour: 99, sevenDay: null, limit: true })));
+		store.hitAt = undefined;
+		keys.renderAll();
+		expect(v.setImage).toHaveBeenLastCalledWith(toDataUrl(renderUsageKey({ fiveHour: 99, sevenDay: null })));
 	});
 
 	it("press shows reset times for 3 s", () => {

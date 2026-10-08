@@ -7,8 +7,11 @@ const USAGE = {
 	rateLimits: [{ kind: 'five_hour', percentUsed: 85, resetsAt: '2026-10-07T12:00:00Z' }],
 }
 
+// The test runtime has timers; the module typings (lib es2023, no DOM or node) do not declare them.
+declare const setTimeout: (callback: () => void, ms: number) => unknown
+
 /** The hooks post without awaiting: lets those posts finish before the test looks. */
-const settle = () => new Promise(resolve => setTimeout(resolve, 0))
+const settle = () => new Promise<void>(resolve => setTimeout(resolve, 0))
 
 /** The engine beneath the plugin: a session s1 whose events just pass. */
 function engine(on: On, id: () => Promise<{ value: string }> = async () => ({ value: 's1' })): void {
@@ -54,6 +57,7 @@ test('ignores a missing ClaudeDeck', async ($, on) => {
 	const statuses: unknown[] = []
 	on('ui.status', async (_$, e) => {
 		statuses.push(e)
+		return { value: undefined }
 	})
 
 	await $.session.start({ cwd: 'F:\\Code\\ClaudeDeck', surface: null, isInteractive: false })
@@ -101,6 +105,7 @@ test('polls commands and aborts only the matching turn', async ($, on) => {
 	const aborted: string[] = []
 	on('turn.abort', async (_$, e) => {
 		aborted.push(e.turnId)
+		return { value: undefined }
 	})
 	engine(on)
 
@@ -125,6 +130,36 @@ test('polls commands and aborts only the matching turn', async ($, on) => {
 	expect(aborted).toEqual(['t1'])
 })
 
+test('reports usage every 60 s without ending the turn', async ($, on) => {
+	const clock = mock.clock(on)
+	const usages: unknown[] = []
+	const polls: string[] = []
+	on('http.fetch', async (_$, e) => {
+		if (e.url.endsWith('/module/usage')) usages.push(JSON.parse(String(e.init?.body)))
+		if (e.url.includes('/commands')) polls.push(e.url)
+		return { value: { status: 200, ok: true, headers: {}, text: '{"commands":[]}' } }
+	})
+	engine(on)
+	const periodic = { sessionId: 's1', context: USAGE.context, rateLimits: USAGE.rateLimits, periodic: true }
+
+	// Also without a running turn.
+	await $.session.start({ cwd: 'F:/Code/ClaudeDeck', surface: null, isInteractive: false })
+	await clock.advance(59_999)
+	expect(usages).toEqual([])
+	await clock.advance(1)
+	await settle()
+	expect(usages).toEqual([periodic])
+
+	// During a turn the report does not end it: polling for aborts goes on.
+	await $.turn.start({ text: 'hi', turnId: 't1' })
+	await clock.advance(60_000)
+	await settle()
+	expect(usages).toEqual([periodic, periodic])
+	const before = polls.length
+	await clock.advance(1000)
+	expect(polls.length).toBe(before + 1)
+})
+
 test('ignores failing polls', async ($, on) => {
 	const clock = mock.clock(on)
 	let polls = 0
@@ -138,6 +173,7 @@ test('ignores failing polls', async ($, on) => {
 	const statuses: unknown[] = []
 	on('ui.status', async (_$, e) => {
 		statuses.push(e)
+		return { value: undefined }
 	})
 
 	await $.session.start({ cwd: 'F:/Code/ClaudeDeck', surface: null, isInteractive: false })

@@ -3,32 +3,29 @@ import { toDataUrl } from "../render/status-key.js";
 import { renderUsageKey, renderUsageResetKey, resetLabel } from "../render/usage-key.js";
 import type { KeyView } from "./key-view.js";
 
-type Store = Pick<SessionStore, "rateLimits" | "onRateLimits">;
+type Store = Pick<SessionStore, "rateLimits" | "onRateLimits" | "limitHitAt">;
 type Limit = { percent: number; resetsAt: Date | null };
 
 const RESET_VIEW_MS = 3_000;
-const TICK_MS = 60_000;
 
 /**
  * "Plan Usage" shows the 5h and 7d plan limits from the last module report.
- * A limit whose resetsAt has passed shows "--"; a press shows the reset times for 3 s.
+ * A limit whose resetsAt has passed shows "--" on the next renderAll (src/actions/refresh.ts); a press shows the reset times for 3 s.
+ * After a rate_limit failure the key shows "LIMIT" until the store clears the marker.
  */
 export class UsageKeys {
 	readonly #views = new Map<string, KeyView>();
 	readonly #resetTimers = new Map<string, ReturnType<typeof setTimeout>>();
-	#tick: ReturnType<typeof setInterval> | undefined;
 
 	constructor(
 		private readonly store: Store,
 		private readonly now: () => number,
 	) {
-		store.onRateLimits(() => this.#renderAll());
+		store.onRateLimits(() => this.renderAll());
 	}
 
 	appear(view: KeyView): void {
 		this.#views.set(view.id, view);
-		// Re-render once a minute so expired windows switch to "--".
-		this.#tick ??= setInterval(() => this.#renderAll(), TICK_MS);
 		this.#render(view);
 	}
 
@@ -36,10 +33,6 @@ export class UsageKeys {
 		this.#views.delete(id);
 		clearTimeout(this.#resetTimers.get(id));
 		this.#resetTimers.delete(id);
-		if (this.#views.size === 0) {
-			clearInterval(this.#tick);
-			this.#tick = undefined;
-		}
 	}
 
 	press(view: KeyView): void {
@@ -54,7 +47,7 @@ export class UsageKeys {
 		this.#render(view);
 	}
 
-	#renderAll(): void {
+	renderAll(): void {
 		for (const view of this.#views.values()) this.#render(view);
 	}
 
@@ -65,7 +58,7 @@ export class UsageKeys {
 			const now = new Date(this.now());
 			const label = (limit: Limit | null) => (limit?.resetsAt ? resetLabel(limit.resetsAt, now) : null);
 			view.setImage(toDataUrl(renderUsageResetKey({ fiveHour: label(fiveHour), sevenDay: label(sevenDay) })));
-		} else view.setImage(toDataUrl(renderUsageKey({ fiveHour: fiveHour?.percent ?? null, sevenDay: sevenDay?.percent ?? null })));
+		} else view.setImage(toDataUrl(renderUsageKey({ fiveHour: fiveHour?.percent ?? null, sevenDay: sevenDay?.percent ?? null, limit: this.store.limitHitAt() !== undefined })));
 	}
 
 	/** The reported limit of this kind, or null when missing, malformed or already reset. */
