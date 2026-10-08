@@ -34,6 +34,9 @@ Hinweis zur Reihenfolge: Die Packages folgen den technischen Abhängigkeiten, ni
 | 25 | Exakter Kontext aus dem Modul | Der Kontextbalken nutzt den exakten Modul-Wert, sonst die Transkript-Schätzung. | 23 |
 | 26 | Plan-Usage-Key | Ein Key zeigt 5h- und 7d-Auslastung der Claude-Limits. | 23 |
 | 27 | Interrupt pro Session | Ein langer Druck auf einen Status-Key bricht genau diese Session ab. | 23 |
+| 28 | Fehlgeschlagene Turns (StopFailure) | Bei API-Fehlern (z. B. Limit) zeigt der Key Limit/Error statt Working. | 2, 5 |
+| 29 | Regelmäßige Aktualisierung | Modul meldet Usage alle 60 s, Tasten werden alle 30 s neu gezeichnet. | 23, 26 |
+| 30 | Abgebrochene Turns (Esc) | Ein per Esc abgebrochener Turn setzt den Key von Working auf Idle. | 23 |
 
 Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen. Packages 12 und 17 sind unabhängig voneinander; 13 bis 16 folgen auf 12 (14, 15 und 16 berühren dieselben Dateien und laufen nacheinander).
 
@@ -1270,3 +1273,78 @@ Package 10 scheiterte, weil `Esc` an das Desktop-Fenster die sichtbare statt die
 1. `status-action.test.ts > "long press queues abort for the running turn"` - AC1, AC4
 2. `register.test.ts > "polls commands and aborts only the matching turn"` - AC2
 3. `hook-server.test.ts > "serves commands per session and expires them"` - AC3, AC5
+
+---
+
+## Package 28: Fehlgeschlagene Turns (StopFailure)
+
+**Ziel:** Endet ein Turn wegen eines API-Fehlers (z. B. Nutzungslimit erreicht), zeigt der Status-Key "Limit" bzw. "Error" statt "Working".
+
+**Abhängigkeiten:** Package 2, Package 5
+
+### Kontext
+
+Gemeldet vom Nutzer: Als das 5h-Limit aufgebraucht war, zeigte eine Kachel weiter "Working". Laut Hooks-Doku feuert bei einem API-Fehler `StopFailure` statt `Stop` (Felder: `error` mit Werten wie `rate_limit`, `overloaded`, `authentication_failed`, `billing_error`, `server_error`, `unknown`; optional `error_details`, `last_assistant_message`). ClaudeDeck registriert `StopFailure` bisher nicht. Ob HTTP-Hooks für `StopFailure` unterstützt werden, ist nicht dokumentiert und wird geprüft (wie `SessionStart` damals).
+
+### Acceptance Criteria
+
+- [ ] AC1: `claude-plugin/hooks/hooks.json` registriert `StopFailure` (HTTP, falls unterstützt; sonst dokumentierte Alternative), und der Hook-Server nimmt `/hook/StopFailure` an.
+- [ ] AC2: `StopFailure` setzt die Session in den neuen Zustand `error`; offene Freigaben der Session bleiben unberührt; der Zustand endet wie `done` mit dem nächsten Prompt oder Event.
+- [ ] AC3: Der Status-Key zeigt `error` rot: Label "Limit" bei `error: "rate_limit"`, sonst "Error"; er blinkt nicht.
+- [ ] AC4: `error` wird nach 10 min ohne Event zu `idle` (wie `done`); ein Druck auf den Key öffnet die Session wie bisher.
+- [ ] AC5: Ein echter `claude -p`-Lauf oder ein dokumentierter Test zeigt, dass `StopFailure` per HTTP ankommt (oder warum nicht).
+
+### Tests (TDD)
+
+1. `session-store.test.ts > "StopFailure sets error with its kind"` - AC2, AC4
+2. `hook-server.test.ts > "accepts StopFailure"` - AC1
+3. `render.test.ts > "error key shows Limit for rate_limit and Error otherwise"` - AC3
+4. `test/claude-plugin.test.ts`: Event-Liste enthält `StopFailure` - AC1
+
+---
+
+## Package 29: Regelmäßige Aktualisierung
+
+**Ziel:** Usage und Tasten werden auch ohne neue Turns regelmäßig aktualisiert.
+
+**Abhängigkeiten:** Package 23, Package 26
+
+### Kontext
+
+Gemeldet vom Nutzer: Die 5h-Anzeige stand bei 99 %, obwohl das Limit erreicht war; der Wunsch ist ein fester Timer. Bisher meldet das Modul `session.usage()` nur nach erfolgreich beendeten Turns, und der Stream-Deck-Plugin zeichnet Tasten nur bei Ereignissen neu (Usage-Key minütlich, aber mit alten Daten). Neu: Das Modul meldet die Usage zusätzlich alle 60 s; der Plugin zeichnet alle 30 s alle sichtbaren ClaudeDeck-Tasten neu (Sicherheitsnetz gegen verpasste Ereignisse).
+
+### Acceptance Criteria
+
+- [ ] AC1: Das Modul sendet `session.usage()` alle 60 s an `/module/usage` (zusätzlich zu `turn.complete`), fehlerfrei auch ohne laufenden Turn; ein leeres `rateLimits` überschreibt bekannte Werte weiterhin nicht.
+- [ ] AC2: Ein periodischer Usage-Report ändert `runningTurnId` nicht (nur `turn.complete` beendet den Turn).
+- [ ] AC3: Der Plugin zeichnet alle 30 s alle sichtbaren Status-, Decision-, Usage- und Fenster-Keys neu.
+- [ ] AC4: Die Intervalle stehen als benannte Konstanten an einer Stelle.
+
+### Tests (TDD)
+
+1. `register.test.ts > "reports usage every 60 s without ending the turn"` - AC1, AC2
+2. `session-store.test.ts > "periodic usage keeps the running turn"` - AC2
+3. `refresh.test.ts > "re-renders all visible keys every 30 s"` - AC3, AC4
+
+---
+
+## Package 30: Abgebrochene Turns (Esc)
+
+**Ziel:** Bricht der Nutzer einen Turn ab (Esc), wechselt der Status-Key von "Working" auf "Idle".
+
+**Abhängigkeiten:** Package 23
+
+### Kontext
+
+Bei einem Abbruch durch den Nutzer feuern weder `Stop` noch `StopFailure` (Hooks-Doku); die Kachel bleibt bisher auf "Working". Das Modul sieht den Abbruch: `turn.complete` hat `isAborted: true`. Neu: Das Modul schickt bei `turn.complete` das Flag `aborted` mit; der Session-Store setzt bei `aborted` eine `working`-Session auf `idle` (offene Freigaben bleiben unberührt). Ohne Modul bleibt das bisherige Verhalten.
+
+### Acceptance Criteria
+
+- [ ] AC1: Das Modul sendet bei `turn.complete` zusätzlich `aborted: true|false` an `/module/usage`.
+- [ ] AC2: `aborted: true` setzt eine Session im Basiszustand `working` auf `idle`; andere Zustände bleiben unverändert.
+- [ ] AC3: Ein periodischer Report (Package 29) trägt kein `aborted` und ändert keinen Zustand.
+
+### Tests (TDD)
+
+1. `register.test.ts > "reports aborted turns"` - AC1
+2. `session-store.test.ts > "an aborted turn ends working as idle"` - AC2, AC3
