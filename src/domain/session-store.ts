@@ -35,9 +35,6 @@ export type ModuleContext = { percent?: number; window?: number; tokens?: number
 /** Plan usage limits as the plugin module reported them last (any session), e.g. { kind: "five_hour", percentUsed, resetsAt }. */
 export type RateLimits = { limits: unknown[]; at: number };
 
-/** resetsAt values this close belong to the same window (the API rounds them differently per response). */
-const SAME_WINDOW_MS = 60_000;
-
 type Limit = { kind?: unknown; percentUsed?: unknown; resetsAt?: unknown };
 const kindOf = (limit: unknown) => (typeof (limit as Limit | null)?.kind === "string" ? ((limit as Limit).kind as string) : undefined);
 const resetOf = (limit: unknown) => {
@@ -45,31 +42,13 @@ const resetOf = (limit: unknown) => {
 	const time = typeof raw === "string" ? Date.parse(raw) : NaN;
 	return Number.isNaN(time) ? undefined : time;
 };
-const percentOf = (limit: unknown) => {
-	const raw = (limit as Limit | null)?.percentUsed;
-	return typeof raw === "number" ? raw : -Infinity;
-};
+const sameLimits = (a: unknown[], b: unknown[]) => JSON.stringify(a) === JSON.stringify(b);
 
-/**
- * Each session reports the limits of its own last API response, so an idle session's report can be older than what is known.
- * Per kind: same window keeps the higher percent, a later window replaces, an earlier (stale) window is ignored.
- */
-function mergeLimits(known: unknown[], reported: unknown[]): unknown[] {
-	const merged = [...known];
-	for (const limit of reported) {
-		const kind = kindOf(limit);
-		const index = kind === undefined ? -1 : merged.findIndex((k) => kindOf(k) === kind);
-		if (index < 0) {
-			merged.push(limit);
-			continue;
-		}
-		const before = resetOf(merged[index]);
-		const after = resetOf(limit);
-		const delta = before === undefined || after === undefined ? Infinity : after - before;
-		if (delta > SAME_WINDOW_MS || (Math.abs(delta) <= SAME_WINDOW_MS && percentOf(limit) >= percentOf(merged[index]))) merged[index] = limit;
-	}
-	return merged;
-}
+/** One session's last reported limits and when they were last fresh (a turn ended, or its periodic report changed). */
+type LimitSource = { limits: unknown[]; freshAt: number };
+
+/** Sources kept for rateLimits(); ended sessions stay as a fallback. */
+const MAX_LIMIT_SOURCES = 50;
 
 /** A status key slot bound to a project folder. latestOnly: the slot always shows the folder's session with the newest event. */
 export type Pin = { cwd: string; latestOnly: boolean };
@@ -121,7 +100,8 @@ export class SessionStore {
 	#pins = new Map<number, Pin>();
 	readonly #listeners: ((sessionId: string) => void)[] = [];
 	readonly #rateLimitListeners: ((rateLimits: RateLimits) => void)[] = [];
-	#rateLimits: RateLimits | undefined;
+	/** Per session id, in store order (oldest first); not tied to known sessions. */
+	readonly #limitSources = new Map<string, LimitSource>();
 	/** When a turn last failed with error "rate_limit"; global like the limits. */
 	#limitHitAt: number | undefined;
 	/** turn-start of sessions no hook event created yet (the module can race ahead of UserPromptSubmit); applied by #create. */
@@ -137,27 +117,68 @@ export class SessionStore {
 		this.#listeners.push(listener);
 	}
 
-	/** Called whenever the plugin module reports a non-empty rate limit list and when the limit marker is set or cleared. */
+	/** Called whenever rateLimits() returns other limits and when the limit marker is set or cleared. */
 	onRateLimits(listener: (rateLimits: RateLimits) => void): void {
 		this.#rateLimitListeners.push(listener);
 	}
 
+	/**
+	 * Each session reports the limits of its own last API response, so an idle session's report can be older than another's.
+	 * Per kind, the limit of the freshest source (ties: the latest stored) whose window has not passed; at is the freshest freshAt.
+	 */
 	rateLimits(): RateLimits | undefined {
-		return this.#rateLimits;
+		return this.#pickLimits(true);
+	}
+
+	#pickLimits(skipPassed: boolean): RateLimits | undefined {
+		const sources = [...this.#limitSources.values()].reverse().sort((a, b) => b.freshAt - a.freshAt);
+		if (sources.length === 0) return undefined;
+		const now = this.#now();
+		const byKind = new Map<string, unknown>();
+		for (const source of sources) {
+			for (const limit of source.limits) {
+				const kind = kindOf(limit);
+				const reset = resetOf(limit);
+				if (skipPassed && reset !== undefined && reset <= now) continue;
+				if (kind !== undefined && !byKind.has(kind)) byKind.set(kind, limit);
+			}
+		}
+		return { limits: [...byKind.values()], at: sources[0].freshAt };
 	}
 
 	/** Set by a rate_limit StopFailure; cleared by a completed turn's usage report or once the earliest later reset has passed. */
 	limitHitAt(): number | undefined {
 		const hitAt = this.#limitHitAt;
 		if (hitAt === undefined) return undefined;
-		const resets = (this.#rateLimits?.limits ?? []).map(resetOf).filter((t): t is number => t !== undefined && t > hitAt);
+		// Unfiltered: the passed reset is what ends the marker.
+		const resets = (this.#pickLimits(false)?.limits ?? []).map(resetOf).filter((t): t is number => t !== undefined && t > hitAt);
 		if (resets.length > 0 && Math.min(...resets) <= this.#now()) this.#limitHitAt = undefined;
 		return this.#limitHitAt;
 	}
 
 	#notifyRateLimits(): void {
-		const rateLimits = this.#rateLimits ?? { limits: [], at: this.#now() };
+		const rateLimits = this.rateLimits() ?? { limits: [], at: this.#now() };
 		for (const listener of this.#rateLimitListeners) listener(rateLimits);
+	}
+
+	/**
+	 * A turn's report is always fresh; a periodic one only when it differs from the session's last (else it is an idle session's cache).
+	 * Returns whether rateLimits() now shows other limits.
+	 */
+	#storeLimits(event: ModuleEvent): boolean {
+		const limits = event.rateLimits as unknown[];
+		const known = this.#limitSources.get(event.sessionId);
+		if (event.periodic === true && known && sameLimits(known.limits, limits)) return false;
+		const before = this.rateLimits()?.limits ?? [];
+		this.#limitSources.delete(event.sessionId);
+		// A session's first periodic report may be an old cache (e.g. after a plugin restart): fallback only.
+		this.#limitSources.set(event.sessionId, { limits, freshAt: event.periodic === true && !known ? 0 : this.#now() });
+		// ponytail: linear scan for the stalest source; fine at 50, use a heap if the cap ever grows a lot.
+		if (this.#limitSources.size > MAX_LIMIT_SOURCES) {
+			const [stalest] = [...this.#limitSources].reduce((a, b) => (b[1].freshAt < a[1].freshAt ? b : a));
+			this.#limitSources.delete(stalest);
+		}
+		return !sameLimits(before, this.rateLimits()?.limits ?? []);
 	}
 
 	get(sessionId: string): Session | undefined {
@@ -197,8 +218,7 @@ export class SessionStore {
 	 * An empty list (before the session's first API call) does not erase known limits. Notifies only when the context percent changed.
 	 */
 	handleModule(event: ModuleEvent): void {
-		const reported = event.name === "usage" && Array.isArray(event.rateLimits) && event.rateLimits.length > 0;
-		if (reported) this.#rateLimits = { limits: mergeLimits(this.#rateLimits?.limits ?? [], event.rateLimits as unknown[]), at: this.#now() };
+		const reported = event.name === "usage" && Array.isArray(event.rateLimits) && event.rateLimits.length > 0 && this.#storeLimits(event);
 		// A completed turn's report (not the timed one, not an aborted or failed turn) means the limit no longer blocks; older modules send no outcome.
 		const completed = event.name === "usage" && event.periodic !== true && (event.outcome === undefined || event.outcome === "completed");
 		const cleared = completed && this.#limitHitAt !== undefined;

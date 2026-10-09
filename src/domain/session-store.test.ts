@@ -565,25 +565,79 @@ describe("SessionStore", () => {
 		expect(store.rateLimits()?.limits).toEqual(limits);
 	});
 
-	describe("rate limit merge per kind", () => {
-		const fiveHour = (percentUsed: number, resetsAt: string) => ({ kind: "five_hour", percentUsed, resetsAt });
-		const report = (store: SessionStore, ...limits: unknown[]) => store.handleModule({ name: "usage", sessionId: "x", periodic: true, rateLimits: limits });
+	describe("freshest rate limits", () => {
+		const fiveHour = (percentUsed: number) => ({ kind: "five_hour", percentUsed, resetsAt: "2026-10-08T15:00:00Z" });
+		const sevenDay = (percentUsed: number) => ({ kind: "seven_day", percentUsed, resetsAt: "2026-10-12T09:00:00Z" });
+		const report = (store: SessionStore, sessionId: string, periodic: boolean, ...limits: unknown[]) =>
+			store.handleModule({ name: "usage", sessionId, periodic, rateLimits: limits });
 
-		it("an older report does not lower a fresher limit", () => {
+		it("a fresh lower value in the same window replaces a higher one", () => {
 			const store = new SessionStore(() => 0);
-			report(store, fiveHour(99, "2026-10-08T15:00:00Z"), { kind: "seven_day", percentUsed: 40, resetsAt: "2026-10-12T09:00:00Z" });
-			// An idle session's cached limits: same window (resetsAt 30 s apart), lower percent.
-			report(store, fiveHour(80, "2026-10-08T15:00:30Z"), { kind: "seven_day", percentUsed: 41, resetsAt: "2026-10-12T09:00:00Z" });
-			expect(store.rateLimits()?.limits).toEqual([fiveHour(99, "2026-10-08T15:00:00Z"), { kind: "seven_day", percentUsed: 41, resetsAt: "2026-10-12T09:00:00Z" }]);
+			report(store, "a", false, fiveHour(99));
+			report(store, "a", false, fiveHour(2));
+			expect(store.rateLimits()?.limits).toEqual([fiveHour(2)]);
 		});
 
-		it("a new window replaces even a higher percent; a stale window is ignored", () => {
-			const store = new SessionStore(() => 0);
-			report(store, fiveHour(99, "2026-10-08T15:00:00Z"));
-			report(store, fiveHour(3, "2026-10-08T20:00:00Z"));
-			expect(store.rateLimits()?.limits).toEqual([fiveHour(3, "2026-10-08T20:00:00Z")]);
-			report(store, fiveHour(99, "2026-10-08T15:00:00Z"), { kind: "other", percentUsed: 5 });
-			expect(store.rateLimits()?.limits).toEqual([fiveHour(3, "2026-10-08T20:00:00Z"), { kind: "other", percentUsed: 5 }]);
+		it("an idle session's unchanged periodic report does not override fresher limits", () => {
+			let now = 0;
+			const store = new SessionStore(() => now);
+			const notified: unknown[] = [];
+			store.onRateLimits((r) => notified.push(r));
+			report(store, "idle", true, fiveHour(80));
+			now = 10;
+			report(store, "busy", false, fiveHour(99));
+			now = 20;
+			report(store, "idle", true, fiveHour(80));
+			expect(store.rateLimits()).toEqual({ limits: [fiveHour(99)], at: 10 });
+			expect(notified).toHaveLength(2);
+		});
+
+		it("a changed periodic report counts as fresh", () => {
+			let now = 0;
+			const store = new SessionStore(() => now);
+			report(store, "idle", true, fiveHour(80));
+			now = 10;
+			report(store, "busy", false, fiveHour(99));
+			now = 20;
+			report(store, "idle", true, fiveHour(5));
+			expect(store.rateLimits()).toEqual({ limits: [fiveHour(5)], at: 20 });
+		});
+
+		it("a first periodic report is only a fallback", () => {
+			let now = 10;
+			const store = new SessionStore(() => now);
+			report(store, "busy", false, fiveHour(99));
+			now = 20;
+			// After a plugin restart an idle session's cache arrives first as periodic report.
+			report(store, "idle", true, fiveHour(3));
+			expect(store.rateLimits()).toEqual({ limits: [fiveHour(99)], at: 10 });
+			const alone = new SessionStore(() => 20);
+			report(alone, "idle", true, fiveHour(3));
+			expect(alone.rateLimits()).toEqual({ limits: [fiveHour(3)], at: 0 });
+		});
+
+		it("a kind whose window has passed comes from the next freshest source", () => {
+			let now = Date.parse("2026-10-08T14:00:00Z");
+			const store = new SessionStore(() => now);
+			report(store, "a", false, { kind: "five_hour", percentUsed: 50, resetsAt: "2026-10-08T19:00:00Z" });
+			now += 10;
+			report(store, "b", false, fiveHour(99), sevenDay(40));
+			expect(store.rateLimits()?.limits).toEqual([fiveHour(99), sevenDay(40)]);
+			now = Date.parse("2026-10-08T15:00:00Z");
+			expect(store.rateLimits()?.limits).toEqual([sevenDay(40), { kind: "five_hour", percentUsed: 50, resetsAt: "2026-10-08T19:00:00Z" }]);
+		});
+
+		it("each kind comes from its freshest source", () => {
+			let now = 0;
+			const store = new SessionStore(() => now);
+			report(store, "a", false, fiveHour(10), sevenDay(40));
+			now = 10;
+			report(store, "b", false, fiveHour(20));
+			expect(store.rateLimits()).toEqual({ limits: [fiveHour(20), sevenDay(40)], at: 10 });
+			// Sources outlive SessionEnd as a fallback.
+			store.handle({ ...enter.working, session_id: "b" });
+			store.handle({ ...enter.working, session_id: "b", hook_event_name: "SessionEnd" });
+			expect(store.rateLimits()?.limits).toEqual([fiveHour(20), sevenDay(40)]);
 		});
 	});
 
