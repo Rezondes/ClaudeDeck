@@ -12,7 +12,8 @@
     "module:install": "tsx src/installer/cli.ts install",
     "module:remove": "tsx src/installer/cli.ts remove",
     "link": "streamdeck link com.claudedeck.streamdeck.sdPlugin",
-    "reload": "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*com.claudedeck.streamdeck.sdPlugin*plugin.js*' } | ForEach-Object { Stop-Process -Id $_.ProcessId }\""
+    "reload": "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*com.claudedeck.streamdeck.sdPlugin*plugin.js*' } | ForEach-Object { Stop-Process -Id $_.ProcessId }\"",
+    "plugin:update": "claude plugin marketplace update claudedeck && claude plugin update claudedeck@claudedeck"
   },
   "dependencies": {
     "@elgato/streamdeck": "^3.0.1"

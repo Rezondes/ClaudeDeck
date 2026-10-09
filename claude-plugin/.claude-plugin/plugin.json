@@ -1,6 +1,6 @@
 {
 	"name": "claudedeck",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Sends Claude Code hook events to the ClaudeDeck Stream Deck plugin (approve permission prompts and show session status on your Stream Deck). Falls back to the normal prompt when the Stream Deck plugin is not running.",
 	"author": { "name": "Rezondes" }
 }
