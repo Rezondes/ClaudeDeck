@@ -37,6 +37,7 @@ Hinweis zur Reihenfolge: Die Packages folgen den technischen Abhängigkeiten, ni
 | 28 | Fehlgeschlagene Turns (StopFailure) | Bei API-Fehlern (z. B. Limit) zeigt der Key Limit/Error statt Working. | 2, 5 |
 | 29 | Regelmäßige Aktualisierung | Modul meldet Usage alle 60 s, Tasten werden alle 30 s neu gezeichnet. | 23, 26 |
 | 30 | Abgebrochene Turns (Esc) | Ein per Esc abgebrochener Turn setzt den Key von Working auf Idle. | 23 |
+| 31 | Frischeste Limits statt höchster Wert | Zurückgesetzte Limits werden sofort sichtbar; idle Sessions überschreiben nichts. | 29 |
 
 Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen. Packages 12 und 17 sind unabhängig voneinander; 13 bis 16 folgen auf 12 (14, 15 und 16 berühren dieselben Dateien und laufen nacheinander).
 
@@ -1348,3 +1349,30 @@ Bei einem Abbruch durch den Nutzer feuern weder `Stop` noch `StopFailure` (Hooks
 
 1. `register.test.ts > "reports aborted turns"` - AC1
 2. `session-store.test.ts > "an aborted turn ends working as idle"` - AC2, AC3
+
+---
+
+## Package 31: Frischeste Limits statt höchster Wert
+
+**Ziel:** Der Plan-Usage-Key zeigt die Limits aus der zuletzt frischen API-Antwort, sodass zurückgesetzte Limits (auch das Wochenlimit) sofort sichtbar sind.
+
+**Abhängigkeiten:** Package 29
+
+### Kontext
+
+Gemeldet vom Nutzer: Nach einem Zurücksetzen der Limits aktualisiert sich der Plan-Usage-Key nicht, und das Wochenlimit sinkt nie. Ursache ist die Zusammenführung aus Package 29: Innerhalb desselben Fensters (gleiches `resetsAt`) gewinnt der höhere Wert, was nur stimmt, wenn die Nutzung im Fenster ausschließlich steigt. Ein Zurücksetzen senkt den Wert im selben Fenster. Neu: Der Store hält die Limits pro Session mit dem Zeitpunkt, an dem sie zuletzt frisch waren. Ein nicht periodischer Bericht (Turn-Ende) ist immer frisch. Ein periodischer Bericht ist nur frisch, wenn sich die Werte gegenüber dem letzten Bericht derselben Session geändert haben (sonst ist es der unveränderte Cache einer untätigen Session). Angezeigt werden je `kind` die Werte der Session mit dem frischesten Zeitpunkt. Leere Listen ändern nichts. Beendete Sessions (`SessionEnd`) fallen heraus, ihre Werte dürfen aber als Fallback bleiben, bis eine andere Session frischere liefert.
+
+### Acceptance Criteria
+
+- [ ] AC1: Ein niedrigerer Wert im selben Fenster aus einem frischen Bericht ersetzt einen höheren (Reset wird sofort sichtbar).
+- [ ] AC2: Ein periodischer Bericht mit unveränderten Werten einer untätigen Session überschreibt frischere Werte einer anderen Session nicht.
+- [ ] AC3: Ein periodischer Bericht mit geänderten Werten zählt als frisch.
+- [ ] AC4: Je `kind` gilt die frischeste Quelle; fehlt eine `kind` in der frischesten Session, kommt sie aus der nächstfrischeren.
+- [ ] AC5: Die Regel "höherer Wert gewinnt" aus Package 29 ist entfernt; die Limit-Markierung (Package 29/30) funktioniert unverändert.
+
+### Tests (TDD)
+
+1. `session-store.test.ts > "a fresh lower value in the same window replaces a higher one"` - AC1
+2. `> "an idle session's unchanged periodic report does not override fresher limits"` - AC2
+3. `> "a changed periodic report counts as fresh"` - AC3
+4. `> "each kind comes from its freshest source"` - AC4
