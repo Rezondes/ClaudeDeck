@@ -16,6 +16,8 @@ export const LOCAL_ID = /^local_[A-Za-z0-9-]{1,64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // ponytail: hard cap on files read per scan; raise it or cache by mtime if someone really has more sessions.
 const MAX_FILES = 2000;
+/** Title Desktop gives a session a project thread starts on this PC via Remote Control, until it gets a real one. */
+const PROJECT_PLACEHOLDER_TITLE = "Remote Control session (from a project)";
 
 export function defaultCatalogRoot(): string {
 	return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "Claude", "claude-code-sessions");
@@ -63,7 +65,7 @@ function toDesktopSession(raw: unknown): DesktopSession | null {
 		localId: sessionId,
 		cliSessionId,
 		cwd,
-		title: typeof title === "string" ? title : "",
+		title: typeof title === "string" && title !== PROJECT_PLACEHOLDER_TITLE ? title : "",
 		lastActivityAt: time,
 		archived: isArchived === true || isArchived === "true",
 	};

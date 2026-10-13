@@ -58,6 +58,19 @@ describe("readDesktopSessions", () => {
 		expect((await readDesktopSessions(root)).map((s) => s.localId)).toEqual(["local_good"]);
 	});
 
+	it("drops the placeholder title of project thread sessions", async () => {
+		await put("a/local_rc.json", {
+			sessionId: "local_rc",
+			cliSessionId: CLI_A,
+			cwd: "F:\\Code\\ClaudeDeck",
+			title: "Remote Control session (from a project)",
+			lastActivityAt: 1,
+			remoteControlSpawn: { ccrSessionId: "cse_01abc", folder: "F:\\Code\\ClaudeDeck", projectThreadChild: true, rcChild: true },
+		});
+
+		expect((await readDesktopSessions(root)).map((s) => s.title)).toEqual([""]);
+	});
+
 	it("returns empty list when root is missing", async () => {
 		expect(await readDesktopSessions(path.join(root, "missing"))).toEqual([]);
 	});
