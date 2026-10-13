@@ -1388,7 +1388,7 @@ Gemeldet vom Nutzer: Nach einem Zurücksetzen der Limits aktualisiert sich der P
 
 ### Kontext
 
-Projekt-Threads aus Claude Code (Desktop) laufen in der Cloud. Projektname, alle Threads und "gelöst" kennt nur der Server; ein dokumentierter Zugriff darauf fehlt, und das Lesen des Claude-Logins für interne Endpunkte wurde bewusst nicht gebaut (Entscheidung 2026-10-13). Lokal sichtbar sind: die für Projekte freigegebenen Ordner (`%APPDATA%\Claude\remote-control-state.json`, Feld `folders`) und Sessions, die ein Projekt-Thread per Remote Control auf diesem PC startet (Katalog-Eintrag mit `remoteControlSpawn.projectThreadChild: true`, Package 12). Ein "Projekt" ist daher lokal ein freigegebener Ordner; Threads sind dessen nicht archivierte Projekt-Sessions, ihr Zustand kommt aus den Hooks (Session-Store). Die Datenquelle steckt hinter `ListProjects`, damit sie sich später austauschen lässt.
+Projekt-Threads aus Claude Code (Desktop) laufen in der Cloud. Projektname, alle Threads und "gelöst" kennt nur der Server; ein dokumentierter Zugriff darauf fehlt, und das Lesen des Claude-Logins für interne Endpunkte wurde bewusst nicht gebaut (Entscheidung 2026-10-13). Lokal sichtbar sind: die für Projekte freigegebenen Ordner (`%APPDATA%\Claude\remote-control-state.json`, je Identität unter `identities["<org>:<account>"].folders`) und Sessions, die ein Projekt-Thread per Remote Control auf diesem PC startet (Katalog-Eintrag mit `remoteControlSpawn.projectThreadChild: true`, Package 12). Ein "Projekt" ist daher lokal ein freigegebener Ordner; Threads sind dessen nicht archivierte Projekt-Sessions, ihr Zustand kommt aus den Hooks (Session-Store). Die Datenquelle steckt hinter `ListProjects`, damit sie sich später austauschen lässt.
 
 ### Acceptance Criteria
 

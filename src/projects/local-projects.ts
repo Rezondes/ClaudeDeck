@@ -10,11 +10,17 @@ export function defaultRemoteControlState(): string {
 	return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "Claude", "remote-control-state.json");
 }
 
-/** Folders Claude Desktop serves to projects via Remote Control (remote-control-state.json "folders"); [] when unreadable. */
+const keysOf = (value: unknown) => (value && typeof value === "object" ? Object.keys(value) : []);
+
+/**
+ * Folders Claude Desktop serves to projects via Remote Control: remote-control-state.json keeps them per signed-in
+ * identity under identities["<org>:<account>"].folders. Deduplicated; [] when unreadable.
+ */
 export async function readProjectFolders(file = defaultRemoteControlState()): Promise<string[]> {
 	try {
-		const folders = (JSON.parse(await readFile(file, "utf8")) as { folders?: unknown } | null)?.folders;
-		return folders && typeof folders === "object" ? Object.keys(folders) : [];
+		const state = JSON.parse(await readFile(file, "utf8")) as { identities?: unknown } | null;
+		const identities = state?.identities && typeof state.identities === "object" ? Object.values(state.identities) : [];
+		return [...new Set(identities.flatMap((identity) => keysOf((identity as { folders?: unknown } | null)?.folders)))];
 	} catch {
 		return []; // internal Desktop format: missing or broken means no folders
 	}

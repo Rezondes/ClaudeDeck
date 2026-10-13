@@ -15,9 +15,19 @@ afterEach(async () => {
 });
 
 describe("readProjectFolders", () => {
-	it("lists the served folders", async () => {
+	it("lists the served folders of all identities once", async () => {
 		const file = path.join(dir, "remote-control-state.json");
-		await writeFile(file, JSON.stringify({ identities: {}, folders: { "F:\\Code\\ClaudeDeck": { environmentId: "env_1" }, "F:\\Code\\Web": {} } }));
+		await writeFile(
+			file,
+			JSON.stringify({
+				version: 1,
+				identities: {
+					"org:acc1": { serve: "on", folders: { "F:\\Code\\ClaudeDeck": { environmentId: "env_1", keys: [] }, "F:\\Code\\Web": {} } },
+					"org:acc2": { folders: { "F:\\Code\\Web": {} } },
+					"org:acc3": { serve: "off" },
+				},
+			}),
+		);
 		expect(await readProjectFolders(file)).toEqual(["F:\\Code\\ClaudeDeck", "F:\\Code\\Web"]);
 	});
 
