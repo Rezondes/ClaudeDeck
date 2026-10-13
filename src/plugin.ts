@@ -99,6 +99,15 @@ const projectKeys = new ProjectKeys(
 		return localProjects(folders, await readDesktopSessions(), (id) => store.get(id)?.state);
 	},
 	openSession,
+	async (projectId, threadId) => {
+		try {
+			await windows.openDesktopProject(projectId, threadId);
+			return true;
+		} catch (error) {
+			log.error(`opening desktop project ${projectId} failed: ${error}`);
+			return false;
+		}
+	},
 	// An empty project name matches the Claude Desktop window.
 	() => focusProject(""),
 	(message) => log.error(message),

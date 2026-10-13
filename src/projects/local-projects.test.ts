@@ -64,7 +64,7 @@ describe("localProjects", () => {
 			session("b", "f:/code/claudedeck/"),
 			session("c", "F:\\Code\\ClaudeDeck", { archived: true }),
 			session("d", "F:\\Code\\ClaudeDeck", { projectThread: false }),
-			session("e", "F:\\Code\\Web"),
+			session("e", "F:\\Code\\Web", { remoteSessionId: "cse_01webthread" }),
 		];
 		const states: Record<string, "approval" | "working"> = { a: "approval", e: "working" };
 		const projects = localProjects(["F:\\Code\\ClaudeDeck", "F:\\Code\\Web\\", "F:\\Code\\Empty"], catalog, (id) => states[id]);
@@ -77,7 +77,7 @@ describe("localProjects", () => {
 					{ id: "b", localId: "local_b", title: "", state: "idle", lastActivityAt: 0 },
 				],
 			},
-			{ id: "F:\\Code\\Web\\", name: "Web", threads: [{ id: "e", localId: "local_e", title: "", state: "working", lastActivityAt: 0 }] },
+			{ id: "F:\\Code\\Web\\", name: "Web", threads: [{ id: "e", localId: "local_e", title: "", state: "working", lastActivityAt: 0, remoteId: "cse_01webthread" }] },
 			{ id: "F:\\Code\\Empty", name: "Empty", threads: [] },
 		]);
 	});

@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { LOCAL_ID } from "../desktop/session-catalog.js";
+import { LOCAL_ID, REMOTE_SESSION_ID } from "../desktop/session-catalog.js";
+import { PROJECT_ID } from "../projects/project-source.js";
 import type { WindowInfo } from "./window-match.js";
 
 /** Runs a program with an argument array (never through a shell) and resolves its stdout. */
@@ -47,6 +48,12 @@ export function createWindowHelper(scriptPath: string, run: RunFile = runFile) {
 		async openDesktopSession(localId: string): Promise<void> {
 			if (!LOCAL_ID.test(localId)) throw new Error(`invalid desktop session id: ${JSON.stringify(localId)}`);
 			await ps("-OpenSession", localId);
+		},
+		/** Opens claude://code/project/<projectId>, at that thread when given, and brings the Desktop window forward. */
+		async openDesktopProject(projectId: string, threadId?: string): Promise<void> {
+			if (!PROJECT_ID.test(projectId)) throw new Error(`invalid project id: ${JSON.stringify(projectId)}`);
+			if (threadId !== undefined && !REMOTE_SESSION_ID.test(threadId)) throw new Error(`invalid thread id: ${JSON.stringify(threadId)}`);
+			await ps("-OpenProject", projectId, ...(threadId === undefined ? [] : ["-Thread", threadId]));
 		},
 		/** Opens claude://code/needs-input ("Sessions Waiting for You") and brings the Desktop window forward. */
 		async openNeedsInput(): Promise<void> {

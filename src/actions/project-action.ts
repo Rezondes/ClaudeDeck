@@ -1,10 +1,20 @@
-import { mostUrgentThread, projectState, type ListProjects, type ProjectSummary } from "../projects/project-source.js";
+import { mostUrgentThread, PROJECT_ID, projectState, type ListProjects, type ProjectSummary } from "../projects/project-source.js";
 import { renderProjectKey, renderProjectPlaceholder } from "../render/project-key.js";
 import { toDataUrl } from "../render/status-key.js";
 import type { KeyView } from "./key-view.js";
 
 /** Property inspector settings of a Project key. */
-export type ProjectSettings = { projectId?: string };
+export type ProjectSettings = {
+	projectId?: string;
+	/** The project's link or id as pasted by the user; only the chan_ id in it is used. */
+	projectLink?: string;
+};
+
+/** The Claude Code project id in a pasted link or id, if there is a valid one. */
+export function projectIdOf(link: string | undefined): string | undefined {
+	const id = link?.match(/chan_\w+/)?.[0];
+	return id && PROJECT_ID.test(id) ? id : undefined;
+}
 
 /** Item list for the property inspector's project dropdown (sdpi-select datasource). */
 export type ProjectItems = { event: "getProjects"; items: { label: string; value: string }[] };
@@ -26,6 +36,8 @@ export class ProjectKeys {
 		private readonly listProjects: ListProjects,
 		/** Opens a Desktop session by its local id; resolves false when that did not work. */
 		private readonly openSession: (localId: string) => Promise<boolean>,
+		/** Opens a Desktop project, at a thread when given; resolves false when that did not work. */
+		private readonly openProject: (projectId: string, threadId?: string) => Promise<boolean>,
 		/** Brings the Claude Desktop window forward; resolves false when there is none. */
 		private readonly focusDesktop: () => Promise<boolean>,
 		private readonly log: (message: string) => void = () => {},
@@ -49,17 +61,20 @@ export class ProjectKeys {
 	}
 
 	/**
-	 * Opens the project in Claude Desktop. Desktop's own project link needs the server's project id, which is not known
-	 * locally, so this opens the most urgent thread via its session deep link, or focuses Desktop when there is none.
+	 * Opens the project in Claude Desktop. Desktop's project link needs the server's project id, which is not stored
+	 * locally; with the pasted project link it opens the project at its most urgent thread. Without it, or when that
+	 * fails, it opens the most urgent thread as a session, or focuses Desktop when there is none.
 	 */
 	press(view: KeyView): void {
-		const id = this.#settings.get(view.id)?.projectId;
-		const project = this.#projects?.find((p) => p.id === id);
-		if (!project) return void view.showAlert();
+		const settings = this.#settings.get(view.id);
+		const project = this.#projects?.find((p) => p.id === settings?.projectId);
+		const projectId = projectIdOf(settings?.projectLink);
+		if (!project && !projectId) return void view.showAlert();
 		const attempt = (show: () => Promise<boolean>) => show().catch(() => false);
-		const thread = mostUrgentThread(project.threads);
+		const thread = project && mostUrgentThread(project.threads);
 		const focus = () => attempt(this.focusDesktop);
-		(thread ? attempt(() => this.openSession(thread.localId)).then((opened) => opened || focus()) : focus())
+		const openThread = () => (thread ? attempt(() => this.openSession(thread.localId)).then((opened) => opened || focus()) : focus());
+		(projectId ? attempt(() => this.openProject(projectId, thread?.remoteId)).then((opened) => opened || openThread()) : openThread())
 			.then((shown) => shown || view.showAlert())
 			.catch(() => {});
 	}

@@ -1,3 +1,6 @@
+/** Claude Code project id, same rule as the Desktop claude://code/project/<id> URL handler. */
+export const PROJECT_ID = /^chan_\w{6,120}$/;
+
 /** State of one project thread as the project overview reports it. */
 export type ThreadState = "input" | "error" | "working" | "done" | "idle";
 
@@ -5,8 +8,11 @@ export type ThreadState = "input" | "error" | "working" | "done" | "idle";
 export interface ProjectSummary {
 	id: string;
 	name: string;
-	/** id is the thread's Claude Code session id, localId its Desktop session id (for the claude:// deep link). */
-	threads: { id: string; localId: string; title: string; state: ThreadState; lastActivityAt: number }[];
+	/**
+	 * id is the thread's Claude Code session id, localId its Desktop session id (claude://code/continue),
+	 * remoteId its cloud session id (thread in claude://code/project) when known.
+	 */
+	threads: { id: string; localId: string; title: string; state: ThreadState; lastActivityAt: number; remoteId?: string }[];
 }
 
 /** Where the Project action gets projects from. Rejects when the source is unreachable. */

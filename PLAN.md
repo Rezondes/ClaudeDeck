@@ -1449,3 +1449,28 @@ Claude Desktop kennt `claude://code/project/<projectId>?thread=<threadId>` (Prot
 1. `reload-action.test.ts` - AC1, AC2, AC3
 2. `status-action.test.ts > "rereads the context of every known session on request"`, `> "seed reports whether the catalog could be read"` - AC1, AC2
 3. `plugin.test.ts > "manifest has the reload action"` - AC4
+
+## Package 35: Projekt-Link im Projekt-Key
+
+**Ziel:** Ein Druck auf "Claude Project" öffnet wirklich das Projekt in Claude Desktop, nicht nur einen Thread als Session.
+
+**Abhängigkeiten:** Package 33
+
+### Kontext
+
+Package 33 öffnet den dringendsten Thread per `claude://code/continue`; Desktop zeigt ihn dann wie eine normale Session, nicht in der Projektansicht. Desktop öffnet Projekte über `claude://code/project/<chan_id>?thread=<cse_id>` (Handler: `chan_\w{6,120}`, Thread `cse_\w{6,120}`, wird intern zu `session_`). Die Thread-ID steht im Katalog (`remoteControlSpawn.ccrSessionId`), die Projekt-ID nur im Local Storage und IndexedDB der eingebetteten claude.ai-Seite (LevelDB, Snappy-komprimiert, ohne Zuordnung zum Ordner). Das wird bewusst nicht gelesen; stattdessen fügt der Nutzer den Projekt-Link (oder die `chan_`-ID) im Property Inspector ein.
+
+### Acceptance Criteria
+
+- [x] AC1: Der Property Inspector hat ein optionales Feld "Project link"; aus dem Text wird nur eine gültige `chan_`-ID übernommen.
+- [x] AC2: Mit gültiger ID öffnet ein Druck `claude://code/project/<id>`, mit `?thread=<cse_id>` des dringendsten Threads, falls bekannt.
+- [x] AC3: Schlägt das fehl oder fehlt die ID, gilt das Verhalten aus Package 33 (Thread als Session, sonst Desktop fokussieren, sonst `showAlert()`).
+- [x] AC4: Projekt- und Thread-ID werden in TypeScript und im PowerShell-Skript (`ValidatePattern`) geprüft, bevor eine URL entsteht.
+
+### Tests (TDD)
+
+1. `project-action.test.ts > "takes the project id from a pasted link or the bare id"` - AC1
+2. `> "press with a project link opens the project at its most urgent thread"` - AC2
+3. `> "press with a project link falls back to the thread when the project link fails"` - AC3
+4. `focus-window.test.ts > "opens a desktop project by validated ids, with or without a thread"`, `> "refuses invalid project and thread ids"` - AC4
+5. `session-catalog.test.ts > "keeps a valid cloud session id of project threads"` - AC2

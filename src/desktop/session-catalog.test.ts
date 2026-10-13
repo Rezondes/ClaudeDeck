@@ -70,6 +70,19 @@ describe("readDesktopSessions", () => {
 		expect((await readDesktopSessions([root])).map((s) => [s.title, s.projectThread])).toEqual([["", true]]);
 	});
 
+	it("keeps a valid cloud session id of project threads", async () => {
+		const spawn = (ccrSessionId: unknown) => ({ ccrSessionId, folder: "F:\\Code\\X", projectThreadChild: true, rcChild: true });
+		await put("a/local_ok.json", { sessionId: "local_ok", cliSessionId: CLI_A, cwd: "C:\\a", lastActivityAt: 1, remoteControlSpawn: spawn("cse_019LkJtuDb8E") });
+		await put("a/local_bad.json", { sessionId: "local_bad", cliSessionId: CLI_B, cwd: "C:\\a", lastActivityAt: 1, remoteControlSpawn: spawn("cse_x&y=1") });
+
+		const sessions = (await readDesktopSessions([root])).sort((a, b) => a.localId.localeCompare(b.localId));
+
+		expect(sessions.map((s) => [s.localId, s.remoteSessionId])).toEqual([
+			["local_bad", undefined],
+			["local_ok", "cse_019LkJtuDb8E"],
+		]);
+	});
+
 	it("returns empty list when root is missing", async () => {
 		expect(await readDesktopSessions([path.join(root, "missing")])).toEqual([]);
 	});

@@ -12,10 +12,14 @@ export type DesktopSession = {
 	archived: boolean;
 	/** Started on this PC by a project thread via Remote Control (remoteControlSpawn.projectThreadChild). */
 	projectThread: boolean;
+	/** Cloud session id of a project thread (remoteControlSpawn.ccrSessionId), the thread id in Desktop's project link. */
+	remoteSessionId?: string;
 };
 
 /** Desktop local session id, same rule as the Desktop claude:// URL handler. */
 export const LOCAL_ID = /^local_[A-Za-z0-9-]{1,64}$/;
+/** Cloud session id of a project thread (remoteControlSpawn.ccrSessionId), as the Desktop project link accepts it in ?thread=. */
+export const REMOTE_SESSION_ID = /^cse_\w{6,120}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // ponytail: hard cap on files read per scan; raise it or cache by mtime if someone really has more sessions.
 const MAX_FILES = 2000;
@@ -66,6 +70,8 @@ function toDesktopSession(raw: unknown): DesktopSession | null {
 	if (typeof cwd !== "string" || !cwd) return null;
 	const time = typeof lastActivityAt === "number" || (typeof lastActivityAt === "string" && lastActivityAt.trim()) ? Number(lastActivityAt) : NaN;
 	if (!Number.isFinite(time)) return null;
+	const spawn = remoteControlSpawn as { projectThreadChild?: unknown; ccrSessionId?: unknown } | null | undefined;
+	const remoteId = spawn?.ccrSessionId;
 	return {
 		localId: sessionId,
 		cliSessionId,
@@ -73,6 +79,7 @@ function toDesktopSession(raw: unknown): DesktopSession | null {
 		title: typeof title === "string" && title !== PROJECT_PLACEHOLDER_TITLE ? title : "",
 		lastActivityAt: time,
 		archived: isArchived === true || isArchived === "true",
-		projectThread: (remoteControlSpawn as { projectThreadChild?: unknown } | null)?.projectThreadChild === true,
+		projectThread: spawn?.projectThreadChild === true,
+		...(typeof remoteId === "string" && REMOTE_SESSION_ID.test(remoteId) && { remoteSessionId: remoteId }),
 	};
 }

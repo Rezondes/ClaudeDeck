@@ -8,10 +8,13 @@
 	<sdpi-item label="Project">
 		<sdpi-select setting="projectId" datasource="getProjects" show-refresh placeholder="Select a project"></sdpi-select>
 	</sdpi-item>
+	<sdpi-item label="Project link">
+		<sdpi-textfield setting="projectLink" placeholder="Link or chan_... id (optional)"></sdpi-textfield>
+	</sdpi-item>
 	<sdpi-item>
 		<details>
 			<summary>Help</summary>
-			<p>Pick a folder you share with Claude Code projects (Remote Control in Claude Desktop). The key shows how many project threads currently work in that folder on this PC and the most urgent state: Input (a thread waits for you), Error, Working, Done or Idle. Archived threads are not counted. Threads that run only in the cloud are not visible to ClaudeDeck. Press the key to open the most urgent thread in Claude Desktop (the most recently active one if several share that state); without threads it brings Claude Desktop forward. Use the Claude Reload key to refresh everything at once.</p>
+			<p>Pick a folder you share with Claude Code projects (Remote Control in Claude Desktop). The key shows how many project threads currently work in that folder on this PC and the most urgent state: Input (a thread waits for you), Error, Working, Done or Idle. Archived threads are not counted. Threads that run only in the cloud are not visible to ClaudeDeck. Press the key to open the project in Claude Desktop. Claude Desktop does not store the project's id on this PC, so paste the project's link (or its id starting with chan_) into Project link: open the project on claude.ai and copy the address. With it, a press opens the project at its most urgent thread. Without it, a press opens the most urgent thread on its own (the most recently active one if several share that state), or brings Claude Desktop forward when there are no threads. Use the Claude Reload key to refresh everything at once.</p>
 		</details>
 	</sdpi-item>
 </body>

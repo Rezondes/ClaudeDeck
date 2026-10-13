@@ -5,6 +5,7 @@
 #   -State -Hwnd <n>                             prints {"minimized":bool,"maximized":bool}
 #   -OpenSession <local_id>                      opens claude://code/continue for that Desktop session and brings Desktop forward
 #   -OpenNeedsInput                              opens claude://code/needs-input (Sessions Waiting for You) and brings Desktop forward
+#   -OpenProject <chan_id> [-Thread <cse_id>]    opens claude://code/project/<chan_id>[?thread=<cse_id>] and brings Desktop forward
 #   -Watch [-Parent <pid>]                       every second prints {"hwnd":n,"minimized":bool,"maximized":bool} for the
 #                                                Desktop window, or {"hwnd":0}; runs until killed or process <pid> exits
 param(
@@ -14,6 +15,8 @@ param(
 	# \z, not $: .NET's $ also matches before a trailing newline. Same rule as the Desktop URL handler.
 	[ValidatePattern('^local_[A-Za-z0-9-]{1,64}\z')][string]$OpenSession,
 	[switch]$OpenNeedsInput,
+	[ValidatePattern('^chan_[A-Za-z0-9_]{6,120}\z')][string]$OpenProject,
+	[ValidatePattern('^cse_[A-Za-z0-9_]{6,120}\z')][string]$Thread,
 	[long]$Focus = 0,
 	[ValidateSet("minimize", "maximize", "restore")][string]$Window,
 	[switch]$State,
@@ -83,9 +86,10 @@ if ($Focus -ne 0) {
 	exit 0
 }
 
-if ($OpenSession -or $OpenNeedsInput) {
-	# Fixed URLs only; the session id is checked by ValidatePattern above.
+if ($OpenSession -or $OpenNeedsInput -or $OpenProject) {
+	# Fixed URLs only; the ids are checked by ValidatePattern above.
 	if ($OpenSession) { Start-Process "claude://code/continue?session=$OpenSession&source=claudedeck" }
+	elseif ($OpenProject) { Start-Process ("claude://code/project/$OpenProject" + $(if ($Thread) { "?thread=$Thread" } else { "" })) }
 	else { Start-Process "claude://code/needs-input?source=claudedeck" }
 	# The URL handler may start Desktop first: wait up to ~2 s for its window.
 	for ($i = 0; $i -lt 10; $i++) {
@@ -117,5 +121,5 @@ if ($Window -and $Hwnd -ne 0) {
 	exit 0
 }
 
-Write-Error "usage: focus-window.ps1 -List | -Focus <hwnd> | -Window minimize|maximize|restore -Hwnd <hwnd> | -State -Hwnd <hwnd> | -OpenSession <local_id> | -OpenNeedsInput | -Watch [-Parent <pid>]"
+Write-Error "usage: focus-window.ps1 -List | -Focus <hwnd> | -Window minimize|maximize|restore -Hwnd <hwnd> | -State -Hwnd <hwnd> | -OpenSession <local_id> | -OpenNeedsInput | -OpenProject <chan_id> [-Thread <cse_id>] | -Watch [-Parent <pid>]"
 exit 2

@@ -41,6 +41,27 @@ describe("window helper", () => {
 		expect(run).toHaveBeenCalledWith("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "s.ps1", "-OpenSession", "local_ab-12"]);
 	});
 
+	it("opens a desktop project by validated ids, with or without a thread", async () => {
+		const run = vi.fn(async () => "");
+		const helper = createWindowHelper("s.ps1", run);
+		await helper.openDesktopProject("chan_01abcDEF");
+		await helper.openDesktopProject("chan_01abcDEF", "cse_01xyz789");
+		expect(run).toHaveBeenNthCalledWith(1, "powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "s.ps1", "-OpenProject", "chan_01abcDEF"]);
+		expect(run).toHaveBeenNthCalledWith(2, "powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "s.ps1", "-OpenProject", "chan_01abcDEF", "-Thread", "cse_01xyz789"]);
+	});
+
+	it("refuses invalid project and thread ids", async () => {
+		const run = vi.fn(async () => "");
+		const helper = createWindowHelper("s.ps1", run);
+		for (const id of ["", "chan_", "chan_abc", "chan_01abc&x=1", "chan_01abc\n", "-Focus 1", `chan_${"a".repeat(121)}`]) {
+			await expect(helper.openDesktopProject(id)).rejects.toThrow();
+		}
+		for (const thread of ["", "cse_", "cse_01a b", "session_01abcdef", "-Focus 1"]) {
+			await expect(helper.openDesktopProject("chan_01abcDEF", thread)).rejects.toThrow();
+		}
+		expect(run).not.toHaveBeenCalled();
+	});
+
 	it("opens needs-input with a fixed command", async () => {
 		const run = vi.fn(async () => "");
 		await createWindowHelper("s.ps1", run).openNeedsInput();
