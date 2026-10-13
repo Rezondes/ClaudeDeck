@@ -99,6 +99,23 @@
 				}
 			],
 			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Claude Project",
+			"UUID": "com.claudedeck.streamdeck.project",
+			"Icon": "imgs/actions/project/icon",
+			"Tooltip": "Open threads and the most urgent state of a Claude Code project. Press to refresh.",
+			"PropertyInspectorPath": "ui/project.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/project/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
 		}
 	],
 	"Category": "ClaudeDeck",

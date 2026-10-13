@@ -267,7 +267,7 @@ describe("StatusKeys", () => {
 
 	describe("press with the Desktop catalog", () => {
 		const catalog = async (): Promise<DesktopSession[]> => [
-			{ localId: "local_api-1", cliSessionId: "api", cwd: "F:\\Code\\api", title: "", lastActivityAt: 0, archived: true },
+			{ localId: "local_api-1", cliSessionId: "api", cwd: "F:\\Code\\api", title: "", lastActivityAt: 0, archived: true, projectThread: false },
 		];
 
 		const flush = async () => {
@@ -422,6 +422,7 @@ describe("StatusKeys", () => {
 			title: "",
 			lastActivityAt: NOW - hoursAgo * HOUR,
 			archived,
+			projectThread: false,
 		});
 
 		function seedSetup(catalog: () => Promise<DesktopSession[]>, readContext = vi.fn(async () => null as number | null)) {

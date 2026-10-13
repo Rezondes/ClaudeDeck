@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { DecisionKeys } from "./actions/decision-action.js";
 import { KeyAdapter } from "./actions/key-adapter.js";
+import { ProjectKeys, type ProjectSettings } from "./actions/project-action.js";
 import { startRefresh } from "./actions/refresh.js";
 import { StatusKeys, type StatusSettings } from "./actions/status-action.js";
 import { UsageKeys } from "./actions/usage-action.js";
@@ -10,6 +11,7 @@ import { WindowKeys } from "./actions/window-action.js";
 import { readDesktopSessions } from "./desktop/session-catalog.js";
 import { readContextUsage } from "./domain/context-usage.js";
 import { SessionStore } from "./domain/session-store.js";
+import { localProjects, readProjectFolders } from "./projects/local-projects.js";
 import type { DecisionKind } from "./render/decision-key.js";
 import { CommandQueue } from "./server/command-queue.js";
 import { HOOK_PORT } from "./server/hook-contract.js";
@@ -87,7 +89,27 @@ streamDeck.actions.registerAction(
 		settingsChanged: (id, settings) => statusKeys.settingsChanged(id, settings as StatusSettings),
 	}),
 );
-startRefresh([statusKeys, ...decisionKeys, usageKeys, windowKeys]);
+const projectKeys = new ProjectKeys(
+	async () => localProjects(await readProjectFolders(), await readDesktopSessions(), (id) => store.get(id)?.state),
+	(message) => log.error(message),
+);
+// Hook events change thread states; reload once they settle instead of rereading the catalog per event.
+let projectReload: ReturnType<typeof setTimeout> | undefined;
+store.onChange(() => {
+	clearTimeout(projectReload);
+	projectReload = setTimeout(() => void projectKeys.reload(), 1000);
+});
+streamDeck.actions.registerAction(
+	new KeyAdapter("com.claudedeck.streamdeck.project", {
+		appear: (view, ev) => projectKeys.appear(view, ev.payload.settings as ProjectSettings),
+		disappear: (id) => projectKeys.disappear(id),
+		press: (view) => projectKeys.press(view),
+		settingsChanged: (id, settings) => projectKeys.settingsChanged(id, settings as ProjectSettings),
+		fromInspector: (payload) => ((payload as { event?: unknown } | null)?.event === "getProjects" ? projectKeys.items() : undefined),
+	}),
+);
+
+startRefresh([statusKeys, ...decisionKeys, usageKeys, windowKeys, projectKeys]);
 
 const server = createHookServer({
 	onEvent: (event) => {

@@ -9,6 +9,8 @@ export type DesktopSession = {
 	title: string;
 	lastActivityAt: number;
 	archived: boolean;
+	/** Started on this PC by a project thread via Remote Control (remoteControlSpawn.projectThreadChild). */
+	projectThread: boolean;
 };
 
 /** Desktop local session id, same rule as the Desktop claude:// URL handler. */
@@ -55,7 +57,7 @@ async function collectFiles(dir: string, files: string[]): Promise<void> {
 
 function toDesktopSession(raw: unknown): DesktopSession | null {
 	if (!raw || typeof raw !== "object") return null;
-	const { sessionId, cliSessionId, cwd, title, lastActivityAt, isArchived } = raw as Record<string, unknown>;
+	const { sessionId, cliSessionId, cwd, title, lastActivityAt, isArchived, remoteControlSpawn } = raw as Record<string, unknown>;
 	if (typeof sessionId !== "string" || !LOCAL_ID.test(sessionId)) return null;
 	if (typeof cliSessionId !== "string" || !UUID.test(cliSessionId)) return null;
 	if (typeof cwd !== "string" || !cwd) return null;
@@ -68,5 +70,6 @@ function toDesktopSession(raw: unknown): DesktopSession | null {
 		title: typeof title === "string" && title !== PROJECT_PLACEHOLDER_TITLE ? title : "",
 		lastActivityAt: time,
 		archived: isArchived === true || isArchived === "true",
+		projectThread: (remoteControlSpawn as { projectThreadChild?: unknown } | null)?.projectThreadChild === true,
 	};
 }

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+	<meta charset="utf-8" />
+	<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+</head>
+<body>
+	<sdpi-item label="Project">
+		<sdpi-select setting="projectId" datasource="getProjects" show-refresh placeholder="Select a project"></sdpi-select>
+	</sdpi-item>
+	<sdpi-item>
+		<details>
+			<summary>Help</summary>
+			<p>Pick a folder you share with Claude Code projects (Remote Control in Claude Desktop). The key shows how many project threads currently work in that folder on this PC and the most urgent state: Input (a thread waits for you), Error, Working, Done or Idle. Archived threads are not counted. Threads that run only in the cloud are not visible to ClaudeDeck. Press the key to refresh.</p>
+		</details>
+	</sdpi-item>
+</body>
+</html>

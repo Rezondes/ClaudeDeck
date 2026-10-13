@@ -33,8 +33,8 @@ describe("readDesktopSessions", () => {
 		const sessions = (await readDesktopSessions(root)).sort((a, b) => a.localId.localeCompare(b.localId));
 
 		expect(sessions).toEqual([
-			{ localId: "local_one", cliSessionId: CLI_A, cwd: "C:\\a", title: "First", lastActivityAt: 1700000000000, archived: true },
-			{ localId: "local_two", cliSessionId: CLI_B, cwd: "C:\\b", title: "", lastActivityAt: 1700000000001, archived: false },
+			{ localId: "local_one", cliSessionId: CLI_A, cwd: "C:\\a", title: "First", lastActivityAt: 1700000000000, archived: true, projectThread: false },
+			{ localId: "local_two", cliSessionId: CLI_B, cwd: "C:\\b", title: "", lastActivityAt: 1700000000001, archived: false, projectThread: false },
 		]);
 	});
 
@@ -68,7 +68,7 @@ describe("readDesktopSessions", () => {
 			remoteControlSpawn: { ccrSessionId: "cse_01abc", folder: "F:\\Code\\ClaudeDeck", projectThreadChild: true, rcChild: true },
 		});
 
-		expect((await readDesktopSessions(root)).map((s) => s.title)).toEqual([""]);
+		expect((await readDesktopSessions(root)).map((s) => [s.title, s.projectThread])).toEqual([["", true]]);
 	});
 
 	it("returns empty list when root is missing", async () => {

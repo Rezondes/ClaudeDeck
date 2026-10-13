@@ -1,4 +1,5 @@
-import { SingletonAction, type DidReceiveSettingsEvent, type KeyDownEvent, type KeyUpEvent, type WillAppearEvent, type WillDisappearEvent } from "@elgato/streamdeck";
+import type { JsonObject, JsonValue } from "@elgato/utils";
+import streamDeck, { SingletonAction, type DidReceiveSettingsEvent, type SendToPluginEvent, type KeyDownEvent, type KeyUpEvent, type WillAppearEvent, type WillDisappearEvent } from "@elgato/streamdeck";
 
 import type { KeyView } from "./key-view.js";
 
@@ -11,6 +12,8 @@ export interface KeyController {
 	release?(view: KeyView): void;
 	/** Property inspector changed this key's settings. */
 	settingsChanged?(id: string, settings: Record<string, unknown>): void;
+	/** Property inspector sent a message; a returned value goes back to it (e.g. dropdown items). */
+	fromInspector?(payload: unknown): Promise<unknown> | undefined;
 }
 
 /** Routes Stream Deck key events for one manifest UUID to a controller. No decorator needed. */
@@ -41,5 +44,10 @@ export class KeyAdapter extends SingletonAction {
 
 	override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void {
 		this.controller.settingsChanged?.(ev.action.id, ev.payload.settings);
+	}
+
+	override async onSendToPlugin(ev: SendToPluginEvent<JsonValue, JsonObject>): Promise<void> {
+		const answer = await this.controller.fromInspector?.(ev.payload);
+		if (answer !== undefined) await streamDeck.ui.sendToPropertyInspector(answer as JsonValue);
 	}
 }

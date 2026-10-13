@@ -34,6 +34,16 @@ describe("manifest", () => {
 		}
 	});
 
+	it("manifest has the project action with its property inspector", () => {
+		const action = manifest.Actions.find((a: { UUID: string }) => a.UUID === "com.claudedeck.streamdeck.project");
+		expect(action?.Name).toBe("Claude Project");
+		expect(action?.PropertyInspectorPath).toBe("ui/project.html");
+		expect(existsSync(new URL("../com.claudedeck.streamdeck.sdPlugin/ui/project.html", import.meta.url))).toBe(true);
+		for (const file of ["icon.png", "icon@2x.png", "key.png", "key@2x.png"]) {
+			expect(existsSync(new URL(`../com.claudedeck.streamdeck.sdPlugin/imgs/actions/project/${file}`, import.meta.url))).toBe(true);
+		}
+	});
+
 	it("has no interrupt action (Package 10 No-Go, docs/spike-results.md)", () => {
 		expect(manifest.Actions.map((a: { UUID: string }) => a.UUID)).not.toContain("com.claudedeck.streamdeck.interrupt");
 	});

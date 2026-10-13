@@ -38,6 +38,7 @@ Hinweis zur Reihenfolge: Die Packages folgen den technischen Abhängigkeiten, ni
 | 29 | Regelmäßige Aktualisierung | Modul meldet Usage alle 60 s, Tasten werden alle 30 s neu gezeichnet. | 23, 26 |
 | 30 | Abgebrochene Turns (Esc) | Ein per Esc abgebrochener Turn setzt den Key von Working auf Idle. | 23 |
 | 31 | Frischeste Limits statt höchster Wert | Zurückgesetzte Limits werden sofort sichtbar; idle Sessions überschreiben nichts. | 29 |
+| 32 | Projekt-Key | Ein Key zeigt für einen gewählten Projekt-Ordner die offenen Projekt-Threads auf diesem PC und deren dringendsten Zustand. | 12, 16 |
 
 Packages 2, 3 und 6 können nach Package 1 parallel laufen. Package 5 kann direkt nach Package 0 parallel zu allem anderen laufen. Packages 12 und 17 sind unabhängig voneinander; 13 bis 16 folgen auf 12 (14, 15 und 16 berühren dieselben Dateien und laufen nacheinander).
 
@@ -1376,3 +1377,31 @@ Gemeldet vom Nutzer: Nach einem Zurücksetzen der Limits aktualisiert sich der P
 2. `> "an idle session's unchanged periodic report does not override fresher limits"` - AC2
 3. `> "a changed periodic report counts as fresh"` - AC3
 4. `> "each kind comes from its freshest source"` - AC4
+
+---
+
+## Package 32: Projekt-Key
+
+**Ziel:** Eine eigene Action "Claude Project" zeigt für ein im Property Inspector gewähltes Projekt die Anzahl offener Threads und deren dringendsten Zustand.
+
+**Abhängigkeiten:** Package 12, 16
+
+### Kontext
+
+Projekt-Threads aus Claude Code (Desktop) laufen in der Cloud. Projektname, alle Threads und "gelöst" kennt nur der Server; ein dokumentierter Zugriff darauf fehlt, und das Lesen des Claude-Logins für interne Endpunkte wurde bewusst nicht gebaut (Entscheidung 2026-10-13). Lokal sichtbar sind: die für Projekte freigegebenen Ordner (`%APPDATA%\Claude\remote-control-state.json`, Feld `folders`) und Sessions, die ein Projekt-Thread per Remote Control auf diesem PC startet (Katalog-Eintrag mit `remoteControlSpawn.projectThreadChild: true`, Package 12). Ein "Projekt" ist daher lokal ein freigegebener Ordner; Threads sind dessen nicht archivierte Projekt-Sessions, ihr Zustand kommt aus den Hooks (Session-Store). Die Datenquelle steckt hinter `ListProjects`, damit sie sich später austauschen lässt.
+
+### Acceptance Criteria
+
+- [x] AC1: Der Property Inspector bietet die Projekte als Auswahlliste (`sdpi-select` mit `datasource="getProjects"`).
+- [x] AC2: Der Key zeigt Name, Anzahl offener Threads und den dringendsten Zustand (Input > Error > Working > Done > Idle) mit Anzahl.
+- [x] AC3: Ohne Auswahl "Select project", bei unbekanntem Projekt "Not found"; schlägt das Lesen fehl, bleiben die letzten Werte als "Offline".
+- [x] AC4: Neu gelesen wird alle 30 s, nach Hook-Events (entprellt) und per Tastendruck.
+- [x] AC5: Der Platzhalter-Titel "Remote Control session (from a project)" wird nicht als Titel angezeigt.
+
+### Tests (TDD)
+
+1. `project-source.test.ts`, `local-projects.test.ts` - AC2, AC4
+2. `project-key.test.ts` - AC2, AC3
+3. `project-action.test.ts` - AC1, AC3, AC4
+4. `plugin.test.ts > "manifest has the project action with its property inspector"` - AC1
+5. `session-catalog.test.ts > "drops the placeholder title of project thread sessions"` - AC5
