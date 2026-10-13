@@ -50,7 +50,9 @@
 						<button class="key" data-key="deny"><img src="img/keys/deny-idle.svg" alt="Deny" /></button>
 						<button class="key" data-key="empty"><img src="img/keys/status-empty.svg" alt="Freie Status-Taste" /></button>
 						<button class="key" data-key="window"><img src="img/keys/window-maximize.svg" alt="Claude Window: Maximize" /></button>
-						<span class="key blank"></span><span class="key blank"></span><span class="key blank"></span><span class="key blank"></span><span class="key blank"></span>
+						<button class="key" data-key="project"><img src="img/keys/project-input.svg" alt="Claude Project: MyApp, 3 Threads, 1 Input" /></button>
+						<button class="key" data-key="reload"><img src="img/keys/reload.svg" alt="Claude Reload" /></button>
+						<span class="key blank"></span><span class="key blank"></span><span class="key blank"></span>
 					</div>
 					<span class="device-logo" aria-hidden="true"></span>
 				</div>
@@ -89,7 +91,7 @@
 
 		<section class="keys-section" id="tasten">
 			<div class="wrap">
-				<h2>Sechs Tasten, frei verteilbar</h2>
+				<h2>Acht Tasten, frei verteilbar</h2>
 				<p class="section-lead">Zieh sie in der Stream Deck App auf dein Gerät. Status-Tasten kannst du so oft verwenden, wie du Sessions im Blick haben willst.</p>
 
 				<article class="row">
@@ -140,6 +142,35 @@
 					<div class="row-text">
 						<h3>Claude Window</h3>
 						<p>Holt Claude Desktop groß nach vorne oder legt es wieder weg. Die Taste zeigt immer, was der nächste Druck macht.</p>
+					</div>
+				</article>
+
+				<article class="row">
+					<div class="plate">
+						<img src="img/keys/project-input.svg" alt="Claude Project, 1 Input" />
+						<img src="img/keys/project-working.svg" alt="Claude Project, 2 Working" />
+					</div>
+					<div class="row-text">
+						<h3>Claude Project</h3>
+						<p>Ein Projekt aus Claude Code auf einen Blick: wie viele Threads gerade auf diesem PC laufen und welcher Zustand am dringendsten ist. Du wählst das Projekt in den Tasteneinstellungen.</p>
+						<dl class="gestures">
+							<div><dt>Drücken</dt><dd>öffnet das Projekt in Claude Desktop, direkt beim dringendsten Thread.</dd></div>
+						</dl>
+						<p class="note">Zum Öffnen des Projekts trägst du einmal den Projekt-Link ein. Ohne ihn öffnet die Taste den dringendsten Thread als Session.</p>
+					</div>
+				</article>
+
+				<article class="row">
+					<div class="plate">
+						<img src="img/keys/reload.svg" alt="Claude Reload" />
+					</div>
+					<div class="row-text">
+						<h3>Claude Reload</h3>
+						<p>Liest Sessions, Projekte und Kontext neu ein und zeichnet alle Tasten neu. Ein Häkchen bestätigt es.</p>
+						<dl class="gestures">
+							<div><dt>Kurz drücken</dt><dd>lädt alles neu.</dd></div>
+							<div><dt>Lang drücken</dt><dd>startet das Plugin neu.</dd></div>
+						</dl>
 					</div>
 				</article>
 			</div>
@@ -211,6 +242,10 @@ npm run link</code></pre>
 				<details>
 					<summary>Kann ich eine Taste fest einem Projekt zuordnen?</summary>
 					<p>Ja. Wähle die Status-Taste in der Stream Deck App aus und trag unter <em>Project folder</em> den Ordner ein. Mit <em>Latest session only</em> zeigt sie immer die zuletzt aktive Session dieses Ordners.</p>
+				</details>
+				<details>
+					<summary>Woher bekomme ich den Projekt-Link?</summary>
+					<p>Öffne das Projekt auf claude.ai und kopiere die Adresse. Sie enthält eine Kennung, die mit <code>chan_</code> beginnt. Trag den Link oder nur diese Kennung bei der Claude-Project-Taste unter <em>Project link</em> ein. Claude Desktop speichert diese Kennung nicht so auf deinem PC, dass ClaudeDeck sie lesen kann.</p>
 				</details>
 				<details>
 					<summary>Läuft ClaudeDeck auf dem Mac?</summary>
