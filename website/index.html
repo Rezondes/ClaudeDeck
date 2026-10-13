@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>ClaudeDeck: Claude Code auf deinem Stream Deck</title>
+	<meta name="description" content="ClaudeDeck zeigt dir auf deinem Elgato Stream Deck, was Claude Code gerade macht, und lässt dich Anfragen per Tastendruck erlauben oder ablehnen." />
+	<link rel="icon" href="img/keys/status-done.svg" type="image/svg+xml" />
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<header class="site-header">
+		<a class="brand" href="#top">ClaudeDeck</a>
+		<nav>
+			<a href="#tasten">Tasten</a>
+			<a href="#farben">Farben</a>
+			<a href="#installation">Installation</a>
+			<a href="#fragen">Fragen</a>
+		</nav>
+	</header>
+
+	<main id="top">
+		<section class="hero">
+			<div class="hero-text">
+				<p class="eyebrow">Stream Deck Plugin für Claude Code</p>
+				<h1>Claude arbeitet. Du siehst es auf einen Blick.</h1>
+				<p class="lead">
+					ClaudeDeck zeigt auf deinem Elgato Stream Deck, was jede deiner Claude Code Sessions gerade macht.
+					Fragt Claude um Erlaubnis, blinkt die Taste, und du entscheidest mit einem Druck.
+					Kein Fensterwechsel, kein Suchen nach dem richtigen Tab.
+				</p>
+				<div class="cta">
+					<a class="button primary" href="#installation">Installieren</a>
+					<a class="button" href="https://github.com/Rezondes/ClaudeDeck">Auf GitHub ansehen</a>
+				</div>
+			</div>
+
+			<div class="deck" aria-label="Beispiel-Belegung eines Stream Deck mit ClaudeDeck">
+				<img src="img/keys/status-working.svg" alt="Status: Working" />
+				<span class="blink" role="img" aria-label="Status: Approve, blinkt">
+					<img src="img/keys/status-approval.svg" alt="" />
+					<img src="img/keys/status-approval-flash.svg" alt="" />
+				</span>
+				<img src="img/keys/status-done.svg" alt="Status: Done" />
+				<img src="img/keys/status-input.svg" alt="Status: Input" />
+				<img src="img/keys/usage.svg" alt="Plan Usage" />
+				<img src="img/keys/allow-active.svg" alt="Allow" />
+				<img src="img/keys/always-active.svg" alt="Always" />
+				<img src="img/keys/deny-active.svg" alt="Deny" />
+				<img src="img/keys/status-idle.svg" alt="Status: Idle" />
+				<img src="img/keys/window-maximize.svg" alt="Claude Window" />
+			</div>
+		</section>
+
+		<section class="intro">
+			<div class="pillars">
+				<article>
+					<h3>Immer im Blick</h3>
+					<p>Jede Session bekommt eine eigene Taste mit Namen, Zustand und wie voll ihr Gedächtnis ist.</p>
+				</article>
+				<article>
+					<h3>Ein Druck genügt</h3>
+					<p>Anfragen von Claude erlaubst oder verbietest du direkt am Stream Deck.</p>
+				</article>
+				<article>
+					<h3>Sofort zur Session</h3>
+					<p>Ein Druck auf eine Status-Taste öffnet genau diese Session in Claude.</p>
+				</article>
+			</div>
+		</section>
+
+		<section id="tasten">
+			<h2>Die Tasten</h2>
+			<p class="section-lead">ClaudeDeck bringt sechs Aktionen mit. Du ziehst sie in der Stream Deck App auf beliebige Tasten, so viele du willst.</p>
+
+			<article class="feature">
+				<div class="feature-keys">
+					<img src="img/keys/status-working.svg" alt="Claude Status Taste, Zustand Working" />
+					<img src="img/keys/status-done.svg" alt="Claude Status Taste, Zustand Done" />
+				</div>
+				<div class="feature-text">
+					<h3>Claude Status</h3>
+					<p>Die wichtigste Taste. Sie zeigt eine Session mit</p>
+					<ul>
+						<li><strong>Titel</strong> der Session (oder dem Projektordner),</li>
+						<li><strong>Zustand</strong>, zum Beispiel <em>Working</em> oder <em>Done</em>,</li>
+						<li><strong>Kontext</strong>: wie viel vom Gedächtnis der Session schon belegt ist, als Prozentzahl und Balken.</li>
+					</ul>
+					<p><strong>Kurz drücken</strong> öffnet die Session in Claude Desktop oder holt das passende Fenster nach vorne.
+						<strong>Lang drücken</strong> (über eine halbe Sekunde) bricht die laufende Antwort dieser Session ab.</p>
+					<p class="hint">Mehrere Status-Tasten füllen sich automatisch mit deinen aktuellen Sessions. Wenn du willst, legst du eine Taste fest auf einen Projektordner.</p>
+				</div>
+			</article>
+
+			<article class="feature">
+				<div class="feature-keys">
+					<img src="img/keys/allow-active.svg" alt="Allow Taste, aktiv" />
+					<img src="img/keys/always-active.svg" alt="Always Taste, aktiv" />
+					<img src="img/keys/deny-active.svg" alt="Deny Taste, aktiv" />
+				</div>
+				<div class="feature-text">
+					<h3>Allow, Always, Deny</h3>
+					<p>Möchte Claude etwas tun, das deine Zustimmung braucht, zum Beispiel einen Befehl ausführen, leuchten diese drei Tasten auf. Darauf steht, was Claude vorhat und in welchem Projekt.</p>
+					<ul>
+						<li><strong>Allow</strong> erlaubt es dieses eine Mal.</li>
+						<li><strong>Always</strong> erlaubt es und fragt in dieser Session nicht mehr nach.</li>
+						<li><strong>Deny</strong> lehnt ab.</li>
+					</ul>
+					<p class="hint">Ohne offene Anfrage bleiben die Tasten gedimmt. Fragt Claude eine inhaltliche Frage, bleiben sie dunkel, und nur die Status-Taste blinkt lila.</p>
+				</div>
+			</article>
+
+			<article class="feature">
+				<div class="feature-keys">
+					<img src="img/keys/usage.svg" alt="Plan Usage Taste" />
+					<img src="img/keys/usage-reset.svg" alt="Plan Usage Taste, Reset-Zeiten" />
+				</div>
+				<div class="feature-text">
+					<h3>Plan Usage</h3>
+					<p>Zeigt, wie viel deines Claude-Kontingents verbraucht ist: das 5-Stunden-Limit und das 7-Tage-Limit.</p>
+					<p><strong>Drücken</strong> zeigt drei Sekunden lang, wann die Limits wieder zurückgesetzt werden. Ist ein Limit erreicht, steht oben rot <em>LIMIT</em>.</p>
+					<p class="hint">Braucht das optionale Zusatzmodul, siehe Installation.</p>
+				</div>
+			</article>
+
+			<article class="feature">
+				<div class="feature-keys">
+					<img src="img/keys/window-maximize.svg" alt="Claude Window Taste, Maximize" />
+					<img src="img/keys/window-minimize.svg" alt="Claude Window Taste, Minimize" />
+				</div>
+				<div class="feature-text">
+					<h3>Claude Window</h3>
+					<p>Holt Claude Desktop groß in den Vordergrund. Ist es schon groß, minimiert ein weiterer Druck das Fenster. Die Taste zeigt immer, was beim nächsten Druck passiert.</p>
+				</div>
+			</article>
+		</section>
+
+		<section id="farben">
+			<h2>Was die Farben bedeuten</h2>
+			<p class="section-lead">Die Farbe einer Status-Taste verrät dir sofort, ob du gebraucht wirst.</p>
+			<div class="legend">
+				<figure><img src="img/keys/status-working.svg" alt="" /><figcaption><b class="c-working">Working</b> Claude arbeitet gerade.</figcaption></figure>
+				<figure>
+					<span class="blink"><img src="img/keys/status-approval.svg" alt="" /><img src="img/keys/status-approval-flash.svg" alt="" /></span>
+					<figcaption><b class="c-approval">Approve</b> Claude wartet auf deine Erlaubnis. Die Taste blinkt.</figcaption>
+				</figure>
+				<figure><img src="img/keys/status-input.svg" alt="" /><figcaption><b class="c-input">Input</b> Claude hat dir eine Frage gestellt. Die Taste blinkt.</figcaption></figure>
+				<figure><img src="img/keys/status-done.svg" alt="" /><figcaption><b class="c-done">Done</b> Fertig. Bleibt grün, bis du drückst oder weiterschreibst.</figcaption></figure>
+				<figure><img src="img/keys/status-limit.svg" alt="" /><figcaption><b class="c-error">Limit / Error</b> Ein Limit ist erreicht oder etwas ist schiefgegangen.</figcaption></figure>
+				<figure><img src="img/keys/status-idle.svg" alt="" /><figcaption><b class="c-idle">Idle</b> Die Session ruht.</figcaption></figure>
+				<figure><img src="img/keys/status-waiting.svg" alt="" /><figcaption><b class="c-input">N waiting</b> Sessions ohne eigene Taste warten auf dich. Drücken öffnet sie.</figcaption></figure>
+			</div>
+			<p class="hint center">Der Kontext-Balken wird ab 50&nbsp;% gelb und ab 80&nbsp;% rot. Dann lohnt sich bald eine neue Session.</p>
+		</section>
+
+		<section id="installation">
+			<h2>Installation</h2>
+			<p class="section-lead">Du brauchst Windows 10 oder 11, ein Elgato Stream Deck mit der Stream Deck App ab Version 7.1 und Claude Desktop oder Claude Code im Terminal.</p>
+
+			<ol class="steps">
+				<li>
+					<h3>Stream Deck Plugin installieren</h3>
+					<p>Ein fertiges Installationspaket folgt. Bis dahin installierst du das Plugin aus dem Quellcode. Dafür brauchst du <a href="https://nodejs.org">Node.js</a> ab Version 24:</p>
+					<pre><code>git clone https://github.com/Rezondes/ClaudeDeck.git
+cd ClaudeDeck
+npm install
+npm run build
+npm run link</code></pre>
+					<p>Danach findest du in der Stream Deck App die Kategorie <strong>ClaudeDeck</strong>. Zieh die Tasten, die du möchtest, auf dein Stream Deck.</p>
+				</li>
+				<li>
+					<h3>Claude Code verbinden</h3>
+					<p>Gib in Claude Desktop (Code-Tab) oder im Terminal in Claude Code diese zwei Befehle ein:</p>
+					<pre><code>/plugin marketplace add Rezondes/ClaudeDeck
+/plugin install claudedeck@claudedeck</code></pre>
+					<p>Starte Claude danach einmal neu. Ab jetzt meldet Claude seinen Zustand an dein Stream Deck.</p>
+				</li>
+				<li>
+					<h3>Optional: Zusatzmodul für mehr Details</h3>
+					<p>Das Zusatzmodul liefert den genauen Kontext-Wert, die Daten für die <strong>Plan Usage</strong> Taste und ermöglicht das Abbrechen per langem Druck. Im ClaudeDeck-Ordner:</p>
+					<pre><code>npm run module:install</code></pre>
+					<p>Neue Sessions laden das Modul dann automatisch. Entfernen geht genauso einfach mit <code>npm run module:remove</code>.</p>
+					<p class="hint">Das Modul nutzt eine Vorab-Funktion von Claude Code, die sich noch ändern kann. ClaudeDeck funktioniert auch ohne es.</p>
+				</li>
+			</ol>
+		</section>
+
+		<section id="fragen">
+			<h2>Häufige Fragen</h2>
+			<details>
+				<summary>Was passiert, wenn mein Stream Deck aus ist?</summary>
+				<p>Nichts Schlimmes. Läuft das Stream Deck Plugin nicht, fragt Claude ganz normal auf dem Bildschirm nach. Drückst du innerhalb von 60 Sekunden keine Taste, erscheint die Anfrage ebenfalls wie gewohnt.</p>
+			</details>
+			<details>
+				<summary>Werden meine Daten irgendwohin geschickt?</summary>
+				<p>Nein. Claude und das Stream Deck sprechen nur auf deinem eigenen Rechner miteinander. Webseiten im Browser können sich nicht dazwischenschalten.</p>
+			</details>
+			<details>
+				<summary>Ich habe mehrere Anfragen gleichzeitig. Welche erlaube ich?</summary>
+				<p>Allow, Always und Deny wirken immer auf die älteste offene Anfrage. Auf der Taste siehst du, um welchen Befehl und welches Projekt es geht.</p>
+			</details>
+			<details>
+				<summary>Kann ich eine Taste fest einem Projekt zuordnen?</summary>
+				<p>Ja. Wähle die Status-Taste in der Stream Deck App aus und trag unter <em>Project folder</em> den Projektordner ein. Mit <em>Latest session only</em> zeigt die Taste immer die zuletzt aktive Session dieses Ordners.</p>
+			</details>
+			<details>
+				<summary>Läuft ClaudeDeck auf dem Mac?</summary>
+				<p>Noch nicht. ClaudeDeck unterstützt derzeit nur Windows.</p>
+			</details>
+			<details>
+				<summary>Ist das ein offizielles Produkt von Anthropic?</summary>
+				<p>Nein. ClaudeDeck ist ein inoffizielles Community-Projekt und steht in keiner Verbindung zu Anthropic oder Elgato.</p>
+			</details>
+		</section>
+	</main>
+
+	<footer class="site-footer">
+		<p>ClaudeDeck von <a href="https://github.com/Rezondes">Rezondes</a>. Inoffiziell, nicht verbunden mit Anthropic oder Elgato.</p>
+	</footer>
+</body>
+</html>

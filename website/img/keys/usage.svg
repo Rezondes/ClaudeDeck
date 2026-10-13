@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#101216" stroke="#2A2D33" stroke-width="2"/>
+<text x="72" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#8A8F98">USAGE</text>
+<text x="18" y="66" font-size="16" font-weight="600" fill="#FFFFFF">5h</text>
+<text x="126" y="66" text-anchor="end" font-size="18" font-weight="700" fill="#2FBF5B">42%</text>
+<rect x="18" y="74" width="108" height="6" rx="3" fill="#2A2D33"/>
+<rect x="18" y="74" width="45.36" height="6" rx="3" fill="#2FBF5B"/>
+<text x="18" y="106" font-size="16" font-weight="600" fill="#FFFFFF">7d</text>
+<text x="126" y="106" text-anchor="end" font-size="18" font-weight="700" fill="#F5C518">67%</text>
+<rect x="18" y="114" width="108" height="6" rx="3" fill="#2A2D33"/>
+<rect x="18" y="114" width="72.36" height="6" rx="3" fill="#F5C518"/>
+</svg>

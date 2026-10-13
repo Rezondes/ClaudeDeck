@@ -9,6 +9,8 @@
     "watch": "rollup -c -w --watch.onEnd=\"npm run reload\"",
     "test": "vitest run",
     "test:module": "node scripts/test-module.mjs",
+    "site:keys": "tsx scripts/site-keys.ts",
+    "site:publish": "git subtree push --prefix website origin gh-pages",
     "module:install": "tsx src/installer/cli.ts install",
     "module:remove": "tsx src/installer/cli.ts remove",
     "link": "streamdeck link com.claudedeck.streamdeck.sdPlugin",
