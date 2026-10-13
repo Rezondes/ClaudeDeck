@@ -1,28 +1,10 @@
-import { readdir, readFile } from "node:fs/promises";
-import os from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { claudeDataDirs } from "../desktop/claude-data.js";
 import type { DesktopSession } from "../desktop/session-catalog.js";
 import { normalizeCwd, projectNameOf, type SessionState } from "../domain/session-store.js";
 import type { ProjectSummary, ThreadState } from "./project-source.js";
-
-const STATE_FILE = path.join("Claude", "remote-control-state.json");
-
-/**
- * Where remote-control-state.json can be. Claude Desktop is an MSIX app: files it creates after install may only exist
- * in its virtualized copy under %LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming, not in %APPDATA%.
- */
-export async function remoteControlStateFiles(env = process.env, home = os.homedir()): Promise<string[]> {
-	const roaming = env.APPDATA || path.join(home, "AppData", "Roaming");
-	const packages = path.join(env.LOCALAPPDATA || path.join(home, "AppData", "Local"), "Packages");
-	let virtualized: string[] = [];
-	try {
-		virtualized = (await readdir(packages)).filter((name) => /^Claude_/i.test(name)).map((name) => path.join(packages, name, "LocalCache", "Roaming", STATE_FILE));
-	} catch {
-		// no Packages folder: not an MSIX install
-	}
-	return [path.join(roaming, STATE_FILE), ...virtualized];
-}
 
 const keysOf = (value: unknown) => (value && typeof value === "object" ? Object.keys(value) : []);
 
@@ -41,7 +23,7 @@ async function foldersIn(file: string): Promise<string[]> {
  * identity under identities["<org>:<account>"].folders. Union of all candidate files, deduplicated.
  */
 export async function readProjectFolders(files?: string[]): Promise<string[]> {
-	const lists = await Promise.all((files ?? (await remoteControlStateFiles())).map(foldersIn));
+	const lists = await Promise.all((files ?? (await claudeDataDirs()).map((dir) => path.join(dir, "remote-control-state.json"))).map(foldersIn));
 	return [...new Set(lists.flat())];
 }
 

@@ -799,7 +799,7 @@ Claude Desktop legt pro Code-Session eine Datei `%APPDATA%\Claude\claude-code-se
 - [ ] AC3: Ungültiges JSON, fehlende Felder oder nicht lesbare Dateien werden übersprungen, ohne Exception.
 - [ ] AC4: Fehlt `root` (Desktop nicht installiert), ist das Ergebnis eine leere Liste.
 - [ ] AC5: `lastActivityAt` ist eine Zahl (ms), `archived` ein Boolean, `title` ein String (leer, falls nicht vorhanden).
-- [ ] AC6: Der Default-Root ist `%APPDATA%\Claude\claude-code-sessions`.
+- [ ] AC6: Der Default-Root ist `%APPDATA%\Claude\claude-code-sessions`. Nachtrag: Die Store-Version (MSIX) schreibt ihre Dateien ggf. nur in die virtualisierte Kopie `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude`; der Katalog liest daher alle Roots aus `claudeDataDirs()` und behält je `localId` den Eintrag mit dem neuesten `lastActivityAt`.
 
 ### Tests (TDD)
 
@@ -1388,7 +1388,7 @@ Gemeldet vom Nutzer: Nach einem Zurücksetzen der Limits aktualisiert sich der P
 
 ### Kontext
 
-Projekt-Threads aus Claude Code (Desktop) laufen in der Cloud. Projektname, alle Threads und "gelöst" kennt nur der Server; ein dokumentierter Zugriff darauf fehlt, und das Lesen des Claude-Logins für interne Endpunkte wurde bewusst nicht gebaut (Entscheidung 2026-10-13). Lokal sichtbar sind: die für Projekte freigegebenen Ordner (`%APPDATA%\Claude\remote-control-state.json`, je Identität unter `identities["<org>:<account>"].folders`) und Sessions, die ein Projekt-Thread per Remote Control auf diesem PC startet (Katalog-Eintrag mit `remoteControlSpawn.projectThreadChild: true`, Package 12). Ein "Projekt" ist daher lokal ein freigegebener Ordner; Threads sind dessen nicht archivierte Projekt-Sessions, ihr Zustand kommt aus den Hooks (Session-Store). Die Datenquelle steckt hinter `ListProjects`, damit sie sich später austauschen lässt.
+Projekt-Threads aus Claude Code (Desktop) laufen in der Cloud. Projektname, alle Threads und "gelöst" kennt nur der Server; ein dokumentierter Zugriff darauf fehlt, und das Lesen des Claude-Logins für interne Endpunkte wurde bewusst nicht gebaut (Entscheidung 2026-10-13). Lokal sichtbar sind: die für Projekte freigegebenen Ordner (`%APPDATA%\Claude\remote-control-state.json`, je Identität unter `identities["<org>:<account>"].folders`) und Sessions, die ein Projekt-Thread per Remote Control auf diesem PC startet (Katalog-Eintrag mit `remoteControlSpawn.projectThreadChild: true`, Package 12). Ein "Projekt" ist daher lokal ein freigegebener Ordner; Threads sind dessen nicht archivierte Projekt-Sessions, ihr Zustand kommt aus den Hooks (Session-Store). Die Datenquelle steckt hinter `ListProjects`, damit sie sich später austauschen lässt. Nachtrag: Bei der Store-Version (MSIX) liegt `remote-control-state.json` ggf. nur unter `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude`; gelesen wird die Vereinigung aller Kopien aus `claudeDataDirs()`.
 
 ### Acceptance Criteria
 

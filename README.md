@@ -142,7 +142,7 @@ Stream Deck plugin "ClaudeDeck"        src/, com.claudedeck.streamdeck.sdPlugin/
 - All logic lives in the Stream Deck plugin. The Claude Code plugin is hook configuration only.
 - The hook server listens on `127.0.0.1:37419` only, accepts only `Content-Type: application/json` and rejects requests with an `Origin` header, so web pages cannot talk to it.
 - If the port is taken, Allow, Always and Deny show `offline`.
-- ClaudeDeck reads titles and folders of Desktop sessions from `%APPDATA%\Claude\claude-code-sessions`.
+- ClaudeDeck reads titles and folders of Desktop sessions from `%APPDATA%\Claude\claude-code-sessions` and, for the Microsoft Store version, from `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude`.
 
 ## Development
 

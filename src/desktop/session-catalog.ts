@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
+
+import { claudeDataDirs } from "./claude-data.js";
 
 export type DesktopSession = {
 	localId: string;
@@ -21,23 +22,25 @@ const MAX_FILES = 2000;
 /** Title Desktop gives a session a project thread starts on this PC via Remote Control, until it gets a real one. */
 const PROJECT_PLACEHOLDER_TITLE = "Remote Control session (from a project)";
 
-export function defaultCatalogRoot(): string {
-	return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "Claude", "claude-code-sessions");
+export async function catalogRoots(): Promise<string[]> {
+	return (await claudeDataDirs()).map((dir) => path.join(dir, "claude-code-sessions"));
 }
 
-export async function readDesktopSessions(root = defaultCatalogRoot()): Promise<DesktopSession[]> {
+/** Sessions from all roots, one per localId; if a session is in several roots, the newest lastActivityAt wins. */
+export async function readDesktopSessions(roots?: string[]): Promise<DesktopSession[]> {
 	const files: string[] = [];
-	await collectFiles(root, files);
-	const sessions: DesktopSession[] = [];
+	for (const root of roots ?? (await catalogRoots())) await collectFiles(root, files);
+	const sessions = new Map<string, DesktopSession>();
 	for (const file of files) {
 		try {
 			const session = toDesktopSession(JSON.parse(await readFile(file, "utf8")));
-			if (session) sessions.push(session);
+			const known = session && sessions.get(session.localId);
+			if (session && (!known || session.lastActivityAt > known.lastActivityAt)) sessions.set(session.localId, session);
 		} catch {
 			// internal Desktop format: unreadable or broken files are skipped
 		}
 	}
-	return sessions;
+	return [...sessions.values()];
 }
 
 async function collectFiles(dir: string, files: string[]): Promise<void> {

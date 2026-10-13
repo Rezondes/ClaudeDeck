@@ -1,10 +1,10 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { DesktopSession } from "../desktop/session-catalog.js";
-import { localProjects, readProjectFolders, remoteControlStateFiles } from "./local-projects.js";
+import { localProjects, readProjectFolders } from "./local-projects.js";
 
 let dir: string;
 beforeEach(async () => {
@@ -43,18 +43,6 @@ describe("readProjectFolders", () => {
 		await writeFile(a, JSON.stringify({ identities: { x: { folders: { "F:\\A": {} } } } }));
 		await writeFile(b, JSON.stringify({ identities: { x: { folders: { "F:\\A": {}, "F:\\B": {} } } } }));
 		expect(await readProjectFolders([a, b])).toEqual(["F:\\A", "F:\\B"]);
-	});
-});
-
-describe("remoteControlStateFiles", () => {
-	it("checks APPDATA and every Claude MSIX package", async () => {
-		await mkdir(path.join(dir, "Local", "Packages", "Claude_pzs8sxrjxfjjc"), { recursive: true });
-		await mkdir(path.join(dir, "Local", "Packages", "Other_123"), { recursive: true });
-		const files = await remoteControlStateFiles({ APPDATA: path.join(dir, "Roaming"), LOCALAPPDATA: path.join(dir, "Local") }, dir);
-		expect(files).toEqual([
-			path.join(dir, "Roaming", "Claude", "remote-control-state.json"),
-			path.join(dir, "Local", "Packages", "Claude_pzs8sxrjxfjjc", "LocalCache", "Roaming", "Claude", "remote-control-state.json"),
-		]);
 	});
 });
 

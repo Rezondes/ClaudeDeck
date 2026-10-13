@@ -1,8 +1,8 @@
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultCatalogRoot, readDesktopSessions } from "./session-catalog.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readDesktopSessions } from "./session-catalog.js";
 
 const CLI_A = "11111111-2222-3333-4444-555555555555";
 const CLI_B = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -14,7 +14,6 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-	vi.unstubAllEnvs();
 	await rm(root, { recursive: true, force: true });
 });
 
@@ -30,7 +29,7 @@ describe("readDesktopSessions", () => {
 		await put("acc/org2/deep/local_two.json", { sessionId: "local_two", cliSessionId: CLI_B, cwd: "C:\\b", lastActivityAt: 1700000000001, isArchived: false });
 		await put("acc/org/other.json", { sessionId: "local_x", cliSessionId: CLI_A, cwd: "C:\\x" });
 
-		const sessions = (await readDesktopSessions(root)).sort((a, b) => a.localId.localeCompare(b.localId));
+		const sessions = (await readDesktopSessions([root])).sort((a, b) => a.localId.localeCompare(b.localId));
 
 		expect(sessions).toEqual([
 			{ localId: "local_one", cliSessionId: CLI_A, cwd: "C:\\a", title: "First", lastActivityAt: 1700000000000, archived: true, projectThread: false },
@@ -44,7 +43,7 @@ describe("readDesktopSessions", () => {
 		await put("a/local_bad3.json", { sessionId: "local_ok", cliSessionId: "not-a-uuid", cwd: "C:\\a", lastActivityAt: 1 });
 		await put("a/local_good.json", { sessionId: "local_good", cliSessionId: CLI_A, cwd: "C:\\a", lastActivityAt: 1 });
 
-		expect((await readDesktopSessions(root)).map((s) => s.localId)).toEqual(["local_good"]);
+		expect((await readDesktopSessions([root])).map((s) => s.localId)).toEqual(["local_good"]);
 	});
 
 	it("skips broken files", async () => {
@@ -55,7 +54,7 @@ describe("readDesktopSessions", () => {
 		await mkdir(path.join(root, "a", "local_dir.json"));
 		await put("a/local_good.json", { sessionId: "local_good", cliSessionId: CLI_A, cwd: "C:\\a", lastActivityAt: 1 });
 
-		expect((await readDesktopSessions(root)).map((s) => s.localId)).toEqual(["local_good"]);
+		expect((await readDesktopSessions([root])).map((s) => s.localId)).toEqual(["local_good"]);
 	});
 
 	it("drops the placeholder title of project thread sessions", async () => {
@@ -68,15 +67,23 @@ describe("readDesktopSessions", () => {
 			remoteControlSpawn: { ccrSessionId: "cse_01abc", folder: "F:\\Code\\ClaudeDeck", projectThreadChild: true, rcChild: true },
 		});
 
-		expect((await readDesktopSessions(root)).map((s) => [s.title, s.projectThread])).toEqual([["", true]]);
+		expect((await readDesktopSessions([root])).map((s) => [s.title, s.projectThread])).toEqual([["", true]]);
 	});
 
 	it("returns empty list when root is missing", async () => {
-		expect(await readDesktopSessions(path.join(root, "missing"))).toEqual([]);
+		expect(await readDesktopSessions([path.join(root, "missing")])).toEqual([]);
 	});
 
-	it("defaults to APPDATA claude-code-sessions", () => {
-		vi.stubEnv("APPDATA", path.join("X:", "AppData", "Roaming"));
-		expect(defaultCatalogRoot()).toBe(path.join("X:", "AppData", "Roaming", "Claude", "claude-code-sessions"));
+	it("merges roots and keeps the newest copy of a session", async () => {
+		await put("roaming/a/local_same.json", { sessionId: "local_same", cliSessionId: CLI_A, cwd: "C:\\a", title: "Old", lastActivityAt: 1 });
+		await put("msix/a/local_same.json", { sessionId: "local_same", cliSessionId: CLI_A, cwd: "C:\\a", title: "New", lastActivityAt: 2 });
+		await put("msix/a/local_other.json", { sessionId: "local_other", cliSessionId: CLI_B, cwd: "C:\\b", lastActivityAt: 1 });
+
+		const sessions = await readDesktopSessions([path.join(root, "roaming"), path.join(root, "msix")]);
+
+		expect(sessions.map((s) => [s.localId, s.title]).sort()).toEqual([
+			["local_other", ""],
+			["local_same", "New"],
+		]);
 	});
 });
