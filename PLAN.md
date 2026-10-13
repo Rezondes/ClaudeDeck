@@ -1442,7 +1442,7 @@ Claude Desktop kennt `claude://code/project/<projectId>?thread=<threadId>` (Prot
 - [x] AC1: Ein kurzer Druck liest den Desktop-Katalog neu (`statusKeys.seed()`), liest den Kontext aller bekannten Sessions neu, lädt die Projekte neu und zeichnet alle Keys neu.
 - [x] AC2: Danach zeigt der Key ein Häkchen (`showOk()`); schlägt ein Teil fehl, `showAlert()`.
 - [x] AC3: Ein langer Druck (ab 0,6 s) beendet den Plugin-Prozess wie `npm run reload`; Stream Deck startet ihn neu. Der Tooltip nennt beides.
-- [x] AC4: Das Manifest deklariert die Aktion mit eigenen Icons (vorerst Kopie der Projekt-Icons).
+- [x] AC4: Das Manifest deklariert die Aktion mit eigenen Icons (Kreispfeil im Stil der anderen Keys).
 
 ### Tests (TDD)
 
