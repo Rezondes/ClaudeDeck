@@ -5,7 +5,8 @@ export type ThreadState = "input" | "error" | "working" | "done" | "idle";
 export interface ProjectSummary {
 	id: string;
 	name: string;
-	threads: { id: string; title: string; state: ThreadState }[];
+	/** id is the thread's Claude Code session id, localId its Desktop session id (for the claude:// deep link). */
+	threads: { id: string; localId: string; title: string; state: ThreadState; lastActivityAt: number }[];
 }
 
 /** Where the Project action gets projects from. Rejects when the source is unreachable. */
@@ -21,4 +22,10 @@ export function projectState(threads: { state: ThreadState }[]): { state: Thread
 		if (count > 0) return { state, count };
 	}
 	return { state: "idle", count: 0 };
+}
+
+/** The thread to open for a project: most urgent state first, the most recently active one on a tie. */
+export function mostUrgentThread<T extends { state: ThreadState; lastActivityAt: number }>(threads: T[]): T | undefined {
+	const rank = (t: T) => PRIORITY.indexOf(t.state);
+	return [...threads].sort((a, b) => rank(a) - rank(b) || b.lastActivityAt - a.lastActivityAt)[0];
 }

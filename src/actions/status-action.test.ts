@@ -475,6 +475,20 @@ describe("StatusKeys", () => {
 			await vi.waitFor(() => expect(k0.setImage).toHaveBeenLastCalledWith(status("web", "idle", 55)));
 		});
 
+		it("rereads the context of every known session on request", async () => {
+			const readContext = vi.fn(async () => 55 as number | null);
+			const { keys } = seedSetup(async () => [desktop("a", "F:\\Code\\web", 1), desktop("b", "F:\\Code\\api", 2)], readContext);
+			await keys.seed();
+			readContext.mockClear();
+			keys.rereadContext();
+			expect(readContext.mock.calls.map(([p]) => p).sort()).toEqual([transcriptPathFor("F:\\Code\\api", "b"), transcriptPathFor("F:\\Code\\web", "a")]);
+		});
+
+		it("seed reports whether the catalog could be read", async () => {
+			expect(await seedSetup(async () => []).keys.seed()).toBe(true);
+			expect(await seedSetup(() => Promise.reject(new Error("gone"))).keys.seed()).toBe(false);
+		});
+
 		it("reseeds on appear, settings change and every 60s", async () => {
 			const { keys, listDesktopSessions } = seedSetup(async () => []);
 			keys.appear(view("k0"), { column: 0, row: 0 }, {});
@@ -529,7 +543,7 @@ describe("StatusKeys", () => {
 			keys.appear(k0, { column: 0, row: 0 }, {});
 			store.handle(event("UserPromptSubmit", "a"));
 			k0.setImage.mockClear();
-			await expect(keys.seed()).resolves.toBeUndefined();
+			await expect(keys.seed()).resolves.toBe(false);
 			expect(k0.setImage).not.toHaveBeenCalled();
 			expect(store.get("a")?.state).toBe("working");
 		});

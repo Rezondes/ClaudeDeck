@@ -73,11 +73,11 @@ describe("localProjects", () => {
 				id: "F:\\Code\\ClaudeDeck",
 				name: "ClaudeDeck",
 				threads: [
-					{ id: "a", title: "", state: "input" },
-					{ id: "b", title: "", state: "idle" },
+					{ id: "a", localId: "local_a", title: "", state: "input", lastActivityAt: 0 },
+					{ id: "b", localId: "local_b", title: "", state: "idle", lastActivityAt: 0 },
 				],
 			},
-			{ id: "F:\\Code\\Web\\", name: "Web", threads: [{ id: "e", title: "", state: "working" }] },
+			{ id: "F:\\Code\\Web\\", name: "Web", threads: [{ id: "e", localId: "local_e", title: "", state: "working", lastActivityAt: 0 }] },
 			{ id: "F:\\Code\\Empty", name: "Empty", threads: [] },
 		]);
 	});

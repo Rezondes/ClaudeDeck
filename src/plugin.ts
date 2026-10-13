@@ -5,6 +5,7 @@ import { DecisionKeys } from "./actions/decision-action.js";
 import { KeyAdapter } from "./actions/key-adapter.js";
 import { ProjectKeys, type ProjectSettings } from "./actions/project-action.js";
 import { startRefresh } from "./actions/refresh.js";
+import { ReloadKeys } from "./actions/reload-action.js";
 import { StatusKeys, type StatusSettings } from "./actions/status-action.js";
 import { UsageKeys } from "./actions/usage-action.js";
 import { WindowKeys } from "./actions/window-action.js";
@@ -97,6 +98,9 @@ const projectKeys = new ProjectKeys(
 		lastFolderCount = folders.length;
 		return localProjects(folders, await readDesktopSessions(), (id) => store.get(id)?.state);
 	},
+	openSession,
+	// An empty project name matches the Claude Desktop window.
+	() => focusProject(""),
 	(message) => log.error(message),
 );
 // Hook events change thread states; reload once they settle instead of rereading the catalog per event.
@@ -115,7 +119,21 @@ streamDeck.actions.registerAction(
 	}),
 );
 
-startRefresh([statusKeys, ...decisionKeys, usageKeys, windowKeys, projectKeys]);
+const allKeys = [statusKeys, ...decisionKeys, usageKeys, windowKeys, projectKeys];
+startRefresh(allKeys);
+
+const reloadKeys = new ReloadKeys(
+	async () => {
+		const seeded = await statusKeys.seed();
+		statusKeys.rereadContext();
+		const projects = await projectKeys.reload();
+		for (const keys of allKeys) keys.renderAll();
+		return seeded && projects;
+	},
+	// Same as `npm run reload`: Stream Deck starts the plugin again after its process ends.
+	() => process.kill(process.pid),
+);
+streamDeck.actions.registerAction(new KeyAdapter("com.claudedeck.streamdeck.reload", reloadKeys));
 
 const server = createHookServer({
 	onEvent: (event) => {

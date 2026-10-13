@@ -16,6 +16,8 @@ Works with the Code tab of **Claude Desktop** and with the **Claude Code CLI**.
 | **Deny** | Same as Allow | Rejects the request |
 | **Plan Usage** | Usage of the 5 hour and 7 day limits, `LIMIT` when a limit is hit | Shows for 3 s when the limits reset |
 | **Claude Window** | The next action (maximize or minimize) | Maximizes Claude Desktop and brings it forward, or minimizes it when it is already maximized |
+| **Claude Project** | A folder shared with Claude Code projects, its open project threads on this PC and their most urgent state | Opens the most urgent thread in Claude Desktop, or brings Claude Desktop forward when there is none |
+| **Claude Reload** | Nothing changing | Short press: rereads Desktop sessions, projects and context and redraws all keys (check mark, or an alert when a part failed). Long press (0.6 s or more): restarts the plugin |
 
 ### Status key states
 

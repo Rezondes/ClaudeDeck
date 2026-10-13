@@ -1395,7 +1395,7 @@ Projekt-Threads aus Claude Code (Desktop) laufen in der Cloud. Projektname, alle
 - [x] AC1: Der Property Inspector bietet die Projekte als Auswahlliste (`sdpi-select` mit `datasource="getProjects"`).
 - [x] AC2: Der Key zeigt Name, Anzahl offener Threads und den dringendsten Zustand (Input > Error > Working > Done > Idle) mit Anzahl.
 - [x] AC3: Ohne Auswahl "Select project", bei unbekanntem Projekt "Not found"; schlägt das Lesen fehl, bleiben die letzten Werte als "Offline".
-- [x] AC4: Neu gelesen wird alle 30 s, nach Hook-Events (entprellt) und per Tastendruck.
+- [x] AC4: Neu gelesen wird alle 30 s, nach Hook-Events (entprellt) und per Tastendruck. Nachtrag: Der Tastendruck öffnet seit Package 33 das Projekt; neu laden macht "Claude Reload" (Package 34).
 - [x] AC5: Der Platzhalter-Titel "Remote Control session (from a project)" wird nicht als Titel angezeigt.
 
 ### Tests (TDD)
@@ -1405,3 +1405,47 @@ Projekt-Threads aus Claude Code (Desktop) laufen in der Cloud. Projektname, alle
 3. `project-action.test.ts` - AC1, AC3, AC4
 4. `plugin.test.ts > "manifest has the project action with its property inspector"` - AC1
 5. `session-catalog.test.ts > "drops the placeholder title of project thread sessions"` - AC5
+
+## Package 33: Projekt-Key öffnet das Projekt
+
+**Ziel:** Ein Druck auf "Claude Project" öffnet das Projekt in Claude Desktop statt neu zu laden.
+
+**Abhängigkeiten:** Package 32
+
+### Kontext
+
+Claude Desktop kennt `claude://code/project/<projectId>?thread=<threadId>` (Protokoll-Handler der App, Version 2.31226). Die Projekt-ID (`chan_...`) steht aber in keiner lokalen Datei: `remote-control-state.json` hat nur Ordner, der Katalog-Eintrag eines Projekt-Threads unter `remoteControlSpawn` nur `ccrSessionId`, `folder`, `projectThreadChild`, `rcChild`. Deshalb öffnet der Key den dringendsten Thread des Projekts über den bekannten Session-Link `claude://code/continue?session=<localId>` (Package 16).
+
+### Acceptance Criteria
+
+- [x] AC1: Ein Druck öffnet den dringendsten Thread (Input > Error > Working > Done > Idle), bei Gleichstand den zuletzt aktiven (`lastActivityAt`), über dessen `localId`.
+- [x] AC2: Ohne Threads oder wenn der Link fehlschlägt, wird das Claude-Desktop-Fenster fokussiert.
+- [x] AC3: Ohne gewähltes oder bekanntes Projekt, oder wenn beides fehlschlägt, zeigt der Key `showAlert()`.
+- [x] AC4: Der Druck lädt nicht mehr neu; dafür gibt es "Claude Reload" (Package 34).
+
+### Tests (TDD)
+
+1. `project-source.test.ts > "mostUrgentThread"` - AC1
+2. `project-action.test.ts > "press opens the most urgent thread in Claude Desktop"` - AC1
+3. `> "press focuses Claude Desktop when the project has no threads or the link fails"` - AC2
+4. `> "press alerts when nothing could be shown or no project is known"` - AC3
+5. `local-projects.test.ts > "counts the open project threads per folder with their live state"` - Threads tragen `localId` und `lastActivityAt`
+
+## Package 34: Reload-Key
+
+**Ziel:** Eine Aktion "Claude Reload" (`com.claudedeck.streamdeck.reload`) lädt auf Druck alles neu.
+
+**Abhängigkeiten:** Package 12, 32
+
+### Acceptance Criteria
+
+- [x] AC1: Ein kurzer Druck liest den Desktop-Katalog neu (`statusKeys.seed()`), liest den Kontext aller bekannten Sessions neu, lädt die Projekte neu und zeichnet alle Keys neu.
+- [x] AC2: Danach zeigt der Key ein Häkchen (`showOk()`); schlägt ein Teil fehl, `showAlert()`.
+- [x] AC3: Ein langer Druck (ab 0,6 s) beendet den Plugin-Prozess wie `npm run reload`; Stream Deck startet ihn neu. Der Tooltip nennt beides.
+- [x] AC4: Das Manifest deklariert die Aktion mit eigenen Icons (vorerst Kopie der Projekt-Icons).
+
+### Tests (TDD)
+
+1. `reload-action.test.ts` - AC1, AC2, AC3
+2. `status-action.test.ts > "rereads the context of every known session on request"`, `> "seed reports whether the catalog could be read"` - AC1, AC2
+3. `plugin.test.ts > "manifest has the reload action"` - AC4

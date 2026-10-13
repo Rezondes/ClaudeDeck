@@ -104,7 +104,7 @@
 			"Name": "Claude Project",
 			"UUID": "com.claudedeck.streamdeck.project",
 			"Icon": "imgs/actions/project/icon",
-			"Tooltip": "Open threads and the most urgent state of a Claude Code project. Press to refresh.",
+			"Tooltip": "Open threads and the most urgent state of a Claude Code project. Press to open its most urgent thread in Claude Desktop.",
 			"PropertyInspectorPath": "ui/project.html",
 			"Controllers": [
 				"Keypad"
@@ -112,6 +112,22 @@
 			"States": [
 				{
 					"Image": "imgs/actions/project/key",
+					"TitleAlignment": "middle"
+				}
+			],
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Claude Reload",
+			"UUID": "com.claudedeck.streamdeck.reload",
+			"Icon": "imgs/actions/reload/icon",
+			"Tooltip": "Press to reread Claude Desktop sessions, projects and context and redraw all keys. Hold for 0.6 s to restart the plugin.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/reload/key",
 					"TitleAlignment": "middle"
 				}
 			],

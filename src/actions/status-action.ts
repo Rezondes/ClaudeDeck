@@ -87,13 +87,16 @@ export class StatusKeys {
 		void this.seed();
 	}
 
-	/** Shows recent and pinned Desktop sessions as idle and reads their context once. A failing catalog changes nothing. */
-	async seed(): Promise<void> {
+	/**
+	 * Shows recent and pinned Desktop sessions as idle and reads their context once. A failing catalog changes nothing.
+	 * Resolves false when the catalog could not be read.
+	 */
+	async seed(): Promise<boolean> {
 		let catalog: DesktopSession[];
 		try {
 			catalog = await this.listDesktopSessions();
 		} catch {
-			return;
+			return false;
 		}
 		this.#localIds = new Map(catalog.map((s) => [s.cliSessionId, s.localId]));
 		const selected = sessionsToSeed(catalog, [...this.#pins.values()].map((pin) => pin.cwd), this.now());
@@ -109,6 +112,12 @@ export class StatusKeys {
 		this.store.seed(entries);
 		this.store.setTitles(new Map(catalog.map((s) => [s.cliSessionId, s.title])));
 		for (const entry of entries) this.#readContext(entry.sessionId, entry.transcriptPath);
+		return true;
+	}
+
+	/** Reads the context of every known session again, ignoring the per-event throttle. */
+	rereadContext(): void {
+		for (const session of this.store.sessions()) this.#readContext(session.id, session.transcriptPath);
 	}
 
 	disappear(id: string): void {

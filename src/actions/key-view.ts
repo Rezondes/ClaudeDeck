@@ -4,4 +4,6 @@ export interface KeyView {
 	id: string;
 	setImage(image: string): unknown;
 	showAlert(): unknown;
+	/** Brief check mark; Stream Deck keys have it, most test fakes do not need it. */
+	showOk?(): unknown;
 }

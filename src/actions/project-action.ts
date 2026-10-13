@@ -1,4 +1,4 @@
-import { projectState, type ListProjects, type ProjectSummary } from "../projects/project-source.js";
+import { mostUrgentThread, projectState, type ListProjects, type ProjectSummary } from "../projects/project-source.js";
 import { renderProjectKey, renderProjectPlaceholder } from "../render/project-key.js";
 import { toDataUrl } from "../render/status-key.js";
 import type { KeyView } from "./key-view.js";
@@ -13,7 +13,7 @@ const POLL_MS = 30_000;
 
 /**
  * "Claude Project" keys: one chosen project per key with its open thread count and most urgent state.
- * Polls the project source while any key is visible; a press reloads at once.
+ * Polls the project source while any key is visible; a press opens the project in Claude Desktop.
  */
 export class ProjectKeys {
 	readonly #views = new Map<string, KeyView>();
@@ -24,6 +24,10 @@ export class ProjectKeys {
 
 	constructor(
 		private readonly listProjects: ListProjects,
+		/** Opens a Desktop session by its local id; resolves false when that did not work. */
+		private readonly openSession: (localId: string) => Promise<boolean>,
+		/** Brings the Claude Desktop window forward; resolves false when there is none. */
+		private readonly focusDesktop: () => Promise<boolean>,
 		private readonly log: (message: string) => void = () => {},
 		private readonly timers = { setInterval, clearInterval },
 	) {}
@@ -44,8 +48,20 @@ export class ProjectKeys {
 		this.#timer = undefined;
 	}
 
+	/**
+	 * Opens the project in Claude Desktop. Desktop's own project link needs the server's project id, which is not known
+	 * locally, so this opens the most urgent thread via its session deep link, or focuses Desktop when there is none.
+	 */
 	press(view: KeyView): void {
-		void this.reload().then((ok) => ok || view.showAlert());
+		const id = this.#settings.get(view.id)?.projectId;
+		const project = this.#projects?.find((p) => p.id === id);
+		if (!project) return void view.showAlert();
+		const attempt = (show: () => Promise<boolean>) => show().catch(() => false);
+		const thread = mostUrgentThread(project.threads);
+		const focus = () => attempt(this.focusDesktop);
+		(thread ? attempt(() => this.openSession(thread.localId)).then((opened) => opened || focus()) : focus())
+			.then((shown) => shown || view.showAlert())
+			.catch(() => {});
 	}
 
 	settingsChanged(id: string, settings: ProjectSettings): void {

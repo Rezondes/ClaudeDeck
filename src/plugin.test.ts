@@ -44,6 +44,17 @@ describe("manifest", () => {
 		}
 	});
 
+	it("manifest has the reload action", () => {
+		const action = manifest.Actions.find((a: { UUID: string }) => a.UUID === "com.claudedeck.streamdeck.reload");
+		expect(action?.Name).toBe("Claude Reload");
+		expect(action?.Controllers).toEqual(["Keypad"]);
+		expect(action?.Icon).toBe("imgs/actions/reload/icon");
+		expect(action?.States[0].Image).toBe("imgs/actions/reload/key");
+		for (const file of ["icon.png", "icon@2x.png", "key.png", "key@2x.png"]) {
+			expect(existsSync(new URL(`../com.claudedeck.streamdeck.sdPlugin/imgs/actions/reload/${file}`, import.meta.url))).toBe(true);
+		}
+	});
+
 	it("has no interrupt action (Package 10 No-Go, docs/spike-results.md)", () => {
 		expect(manifest.Actions.map((a: { UUID: string }) => a.UUID)).not.toContain("com.claudedeck.streamdeck.interrupt");
 	});

@@ -45,7 +45,7 @@ export function localProjects(folders: string[], catalog: DesktopSession[], stat
 		const key = normalizeCwd(folder);
 		const threads = catalog
 			.filter((s) => s.projectThread && !s.archived && normalizeCwd(s.cwd) === key)
-			.map((s) => ({ id: s.cliSessionId, title: s.title, state: THREAD_STATES[stateOf(s.cliSessionId) ?? "idle"] }));
+			.map((s) => ({ id: s.cliSessionId, localId: s.localId, title: s.title, state: THREAD_STATES[stateOf(s.cliSessionId) ?? "idle"], lastActivityAt: s.lastActivityAt }));
 		return { id: folder, name: projectNameOf(folder) || folder, threads };
 	});
 }
