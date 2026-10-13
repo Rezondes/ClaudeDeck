@@ -1,0 +1,21 @@
+# Dependencies and build output
+node_modules/
+*.sdPlugin/bin/
+*.sdPlugin/logs/
+dist/
+coverage/
+*.streamDeckPlugin
+*.log
+
+# Local tool state (not part of ClaudeDeck)
+.claude-flow/
+.swarm/
+ruvector.db
+.claude/settings.local.json
+claude-module/.claudedeck-enabled-function-hooks
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/

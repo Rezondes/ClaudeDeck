@@ -29,6 +29,20 @@ const keys: Record<string, string> = {
 	"usage-reset": renderUsageResetKey({ fiveHour: "16:30", sevenDay: "Mo 09:00" }),
 	"window-maximize": renderWindowKey("maximize"),
 	"window-minimize": renderWindowKey("minimize"),
+	// Live demo in the hero: the same session in every state
+	"demo-a-working": renderStatusKey({ project: "MyApp", title: "Login-Seite bauen", state: "working", contextPercent: 34 }),
+	"demo-a-working-2": renderStatusKey({ project: "MyApp", title: "Login-Seite bauen", state: "working", contextPercent: 41 }),
+	"demo-a-approval": renderStatusKey({ project: "MyApp", title: "Login-Seite bauen", state: "approval", contextPercent: 38 }),
+	"demo-a-approval-flash": renderStatusKey({ project: "MyApp", title: "Login-Seite bauen", state: "approval", contextPercent: 38, flash: true }),
+	"demo-a-done": renderStatusKey({ project: "MyApp", title: "Login-Seite bauen", state: "done", contextPercent: 46 }),
+	"demo-a-idle": renderStatusKey({ project: "MyApp", title: "Login-Seite bauen", state: "idle", contextPercent: 46 }),
+	"demo-b-input": renderStatusKey({ project: "Website", title: "Farben wählen", state: "input", contextPercent: 21 }),
+	"demo-b-input-flash": renderStatusKey({ project: "Website", title: "Farben wählen", state: "input", contextPercent: 21, flash: true }),
+	"demo-b-working": renderStatusKey({ project: "Website", title: "Farben wählen", state: "working", contextPercent: 24 }),
+	"status-empty": renderEmptyStatusKey(0),
+	"demo-allow": renderDecisionKey({ kind: "allow", pending: { toolName: "Bash", toolInput: { command: "npm test" }, project: "Login-Seite" } }),
+	"demo-always": renderDecisionKey({ kind: "always", pending: { toolName: "Bash", toolInput: { command: "npm test" }, project: "Login-Seite" } }),
+	"demo-deny": renderDecisionKey({ kind: "deny", pending: { toolName: "Bash", toolInput: { command: "npm test" }, project: "Login-Seite" } }),
 };
 
 for (const [name, svg] of Object.entries(keys)) writeFileSync(join(out, `${name}.svg`), `${svg}\n`);
