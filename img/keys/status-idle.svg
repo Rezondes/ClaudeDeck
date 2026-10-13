@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<defs><radialGradient id="tint" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="#8A8F98" stop-opacity="0.30"/><stop offset="1" stop-color="#8A8F98" stop-opacity="0"/></radialGradient></defs>
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#101216"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="url(#tint)"/>
+<rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#8A8F98" stroke-width="9" stroke-opacity="0.15"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#8A8F98" stroke-width="6" stroke-opacity="0.3"/><rect class="border" x="6" y="6" width="132" height="132" rx="20" fill="none" stroke="#8A8F98" stroke-width="3" stroke-opacity="1"/>
+<text x="72" y="52" text-anchor="middle" font-size="21" font-weight="700" fill="#FFFFFF">Notizen</text>
+<text x="18" y="92" font-size="15" font-weight="600" fill="#8A8F98">Idle</text>
+<text x="126" y="92" text-anchor="end" font-size="15" font-weight="600" fill="#2FBF5B">12%</text>
+<g id="bar"><rect x="18" y="104" width="108" height="8" rx="4" fill="#2A2D33"/><rect x="18" y="104" width="12.96" height="8" rx="4" fill="#2FBF5B"/></g>
+</svg>

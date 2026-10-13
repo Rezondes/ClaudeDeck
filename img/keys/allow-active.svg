@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#2FBF5B"/>
+<polyline class="check" transform="translate(72 40)" points="-16,0 -5,11 16,-12" fill="none" stroke="#FFFFFF" stroke-opacity="1" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="80" text-anchor="middle" font-size="20" font-weight="700" fill="#FFFFFF">Allow</text>
+<text x="72" y="104" text-anchor="middle" font-size="14" fill="#FFFFFF">Bash npm test</text>
+<text x="72" y="124" text-anchor="middle" font-size="14" fill="#FFFFFF" fill-opacity="0.85">MyApp</text>
+</svg>

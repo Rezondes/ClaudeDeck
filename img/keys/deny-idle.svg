@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" font-family="Segoe UI, Arial, sans-serif">
+<rect width="144" height="144" fill="#000000"/>
+<rect x="6" y="6" width="132" height="132" rx="20" fill="#0B0C0E" stroke="#E5484D" stroke-width="3" stroke-opacity="0.6"/>
+<path class="cross" transform="translate(72 56)" d="M-13,-13 L13,13 M13,-13 L-13,13" fill="none" stroke="#E5484D" stroke-opacity="0.55" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="102" text-anchor="middle" font-size="20" font-weight="600" fill="#E5484D" fill-opacity="0.55">Deny</text>
+</svg>

@@ -1,0 +1,436 @@
+:root {
+	--bg: #0b0c0e;
+	--surface: #15171b;
+	--surface-2: #1d2025;
+	--border: #2a2d33;
+	--text: #eceef2;
+	--muted: #a3a8b3;
+	--accent: #d97757;
+	--working: #2f7bff;
+	--approval: #f5c518;
+	--input: #b05ce6;
+	--done: #2fbf5b;
+	--error: #e5484d;
+	--idle: #8a8f98;
+	--radius: 16px;
+	--max: 1080px;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font: 17px/1.6 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+}
+
+a {
+	color: var(--accent);
+}
+
+img {
+	display: block;
+	max-width: 100%;
+}
+
+h1,
+h2,
+h3 {
+	line-height: 1.2;
+	margin: 0 0 0.5em;
+}
+
+h2 {
+	font-size: clamp(1.7rem, 3.5vw, 2.3rem);
+	text-align: center;
+}
+
+h3 {
+	font-size: 1.2rem;
+}
+
+/* Header */
+.site-header {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 14px max(16px, calc((100% - var(--max)) / 2));
+	background: rgb(11 12 14 / 0.85);
+	backdrop-filter: blur(10px);
+	border-bottom: 1px solid var(--border);
+}
+
+.brand {
+	color: var(--text);
+	font-weight: 700;
+	font-size: 1.1rem;
+	text-decoration: none;
+}
+
+.site-header nav {
+	display: flex;
+	gap: 20px;
+	flex-wrap: wrap;
+}
+
+.site-header nav a {
+	color: var(--muted);
+	text-decoration: none;
+	font-size: 0.95rem;
+}
+
+.site-header nav a:hover {
+	color: var(--text);
+}
+
+/* Layout */
+main > section {
+	max-width: var(--max);
+	margin: 0 auto;
+	padding: 72px 16px;
+}
+
+.section-lead {
+	max-width: 640px;
+	margin: 0 auto 40px;
+	text-align: center;
+	color: var(--muted);
+}
+
+.hint {
+	color: var(--muted);
+	font-size: 0.93rem;
+}
+
+.center {
+	text-align: center;
+}
+
+/* Hero */
+.hero {
+	display: grid;
+	grid-template-columns: 1fr 1.1fr;
+	gap: 48px;
+	align-items: center;
+	padding-top: 88px;
+}
+
+.eyebrow {
+	color: var(--accent);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	font-size: 0.85rem;
+	margin: 0 0 12px;
+}
+
+h1 {
+	font-size: clamp(2.1rem, 5vw, 3.2rem);
+}
+
+.lead {
+	color: var(--muted);
+	font-size: 1.1rem;
+}
+
+.cta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-top: 28px;
+}
+
+.button {
+	display: inline-block;
+	padding: 12px 22px;
+	border-radius: 999px;
+	border: 1px solid var(--border);
+	color: var(--text);
+	text-decoration: none;
+	font-weight: 600;
+	background: var(--surface);
+}
+
+.button:hover {
+	border-color: var(--muted);
+}
+
+.button.primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #1a1a1a;
+}
+
+.button.primary:hover {
+	filter: brightness(1.08);
+}
+
+.hero > *,
+.feature > * {
+	min-width: 0;
+}
+
+/* Stream Deck mock: 5 x 2 keys in a dark housing */
+.deck {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 6px;
+	padding: 18px;
+	background: linear-gradient(160deg, #23262c, #121317);
+	border: 1px solid var(--border);
+	border-radius: 28px;
+	box-shadow: 0 30px 60px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+/* Two stacked frames; the second fades in and out like the real blinking key (500 ms per frame). */
+.blink {
+	display: grid;
+}
+
+.blink > img {
+	grid-area: 1 / 1;
+}
+
+.blink > img:last-child {
+	animation: blink 1s steps(1, end) infinite;
+}
+
+@keyframes blink {
+	0% {
+		opacity: 0;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.blink > img:last-child {
+		animation: none;
+		opacity: 0;
+	}
+}
+
+/* Pillars */
+.intro {
+	padding-top: 0;
+}
+
+.pillars {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 16px;
+}
+
+.pillars article {
+	padding: 24px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+
+.pillars p {
+	margin: 0;
+	color: var(--muted);
+}
+
+/* Features */
+.feature {
+	display: grid;
+	grid-template-columns: 280px 1fr;
+	gap: 40px;
+	align-items: center;
+	padding: 32px;
+	margin-bottom: 20px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+
+.feature-keys {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px;
+}
+
+.feature-keys img {
+	width: 120px;
+}
+
+.feature-keys:has(img:nth-child(3)) img {
+	width: 88px;
+}
+
+.feature-text p:last-child {
+	margin-bottom: 0;
+}
+
+.feature-text ul {
+	padding-left: 1.2em;
+}
+
+/* Legend */
+.legend {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+	gap: 16px;
+}
+
+.legend figure {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 0;
+	padding: 12px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+
+.legend img,
+.legend .blink {
+	width: 72px;
+	flex: none;
+}
+
+.legend figcaption {
+	color: var(--muted);
+	font-size: 0.93rem;
+	line-height: 1.4;
+}
+
+.legend b {
+	display: block;
+	font-size: 1rem;
+}
+
+.c-working { color: var(--working); }
+.c-approval { color: var(--approval); }
+.c-input { color: var(--input); }
+.c-done { color: var(--done); }
+.c-error { color: var(--error); }
+.c-idle { color: var(--idle); }
+
+/* Installation */
+.steps {
+	list-style: none;
+	counter-reset: step;
+	max-width: 760px;
+	margin: 0 auto;
+	padding: 0;
+}
+
+.steps > li {
+	counter-increment: step;
+	position: relative;
+	padding: 0 0 32px 60px;
+}
+
+.steps > li::before {
+	content: counter(step);
+	position: absolute;
+	left: 0;
+	top: -4px;
+	width: 40px;
+	height: 40px;
+	display: grid;
+	place-items: center;
+	border-radius: 50%;
+	background: var(--accent);
+	color: #1a1a1a;
+	font-weight: 700;
+}
+
+pre {
+	overflow-x: auto;
+	padding: 16px 18px;
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	font-size: 0.9rem;
+}
+
+code {
+	font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+}
+
+:not(pre) > code {
+	padding: 2px 6px;
+	background: var(--surface-2);
+	border-radius: 6px;
+	font-size: 0.9em;
+}
+
+/* FAQ */
+#fragen details {
+	max-width: 760px;
+	margin: 0 auto 12px;
+	padding: 16px 20px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+
+#fragen summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+#fragen details p {
+	margin: 12px 0 0;
+	color: var(--muted);
+}
+
+/* Footer */
+.site-footer {
+	padding: 32px 16px;
+	text-align: center;
+	color: var(--muted);
+	font-size: 0.9rem;
+	border-top: 1px solid var(--border);
+}
+
+/* Small screens */
+@media (max-width: 860px) {
+	.hero,
+	.feature {
+		grid-template-columns: 1fr;
+	}
+
+	.hero {
+		padding-top: 48px;
+	}
+
+	.pillars {
+		grid-template-columns: 1fr;
+	}
+
+	.feature {
+		gap: 24px;
+		padding: 24px;
+	}
+}
+
+@media (max-width: 560px) {
+	.site-header nav {
+		display: none;
+	}
+
+	.deck {
+		padding: 10px;
+		gap: 3px;
+		border-radius: 18px;
+	}
+}
