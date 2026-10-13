@@ -167,6 +167,10 @@
 			maximized = !maximized;
 			show("window", maximized ? "window-minimize" : "window-maximize", `Claude Window: ${maximized ? "Minimize" : "Maximize"}`);
 			say(maximized ? "Claude Desktop ist jetzt groß im Vordergrund. Nächster Druck: minimieren." : "Claude Desktop ist minimiert. Nächster Druck: maximieren.");
+		} else if (id === "project") {
+			say("Claude Desktop öffnet das Projekt MyApp, direkt beim Thread, der auf deine Antwort wartet.");
+		} else if (id === "reload") {
+			say("Alles neu eingelesen: Sessions, Projekte und Kontext. Lang drücken würde das Plugin neu starten.");
 		} else if (id === "empty") {
 			say("Eine freie Status-Taste. Die nächste neue Session landet hier.");
 		}
