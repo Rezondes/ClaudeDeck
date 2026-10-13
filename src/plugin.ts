@@ -89,8 +89,14 @@ streamDeck.actions.registerAction(
 		settingsChanged: (id, settings) => statusKeys.settingsChanged(id, settings as StatusSettings),
 	}),
 );
+let lastFolderCount: number | undefined;
 const projectKeys = new ProjectKeys(
-	async () => localProjects(await readProjectFolders(), await readDesktopSessions(), (id) => store.get(id)?.state),
+	async () => {
+		const folders = await readProjectFolders();
+		if (folders.length !== lastFolderCount) log.info(`project folders: ${folders.length}`);
+		lastFolderCount = folders.length;
+		return localProjects(folders, await readDesktopSessions(), (id) => store.get(id)?.state);
+	},
 	(message) => log.error(message),
 );
 // Hook events change thread states; reload once they settle instead of rereading the catalog per event.
